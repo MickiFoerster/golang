@@ -10,7 +10,11 @@ import (
 )
 
 func main() {
+	counter := 0
+	results256 := make(map[string][]byte)
+	results512 := make(map[string][]byte)
 	for _, arg := range os.Args[1:] {
+		counter++
 		f, err := os.Open(arg)
 		if err != nil {
 			fmt.Printf("error: Could not open file %s: %s\n", arg, err)
@@ -31,28 +35,37 @@ func main() {
 				fmt.Printf("error: Could not read from file %s: %s\n", arg, err)
 				continue
 			}
-		  fmt.Printf("%d bytes successfully read\n", count)
+		  //fmt.Printf("%d bytes successfully read\n", count)
 			bytereader := bytes.NewReader(buf[:count])
-			copied, err := io.Copy(h256, bytereader)
+			_, err = io.Copy(h256, bytereader)
 			if  err != nil {
 				fmt.Printf("error: Could not copy bytes from file into sha256 hash function: %s\n", err)
 				continue
 			}
-		  fmt.Printf("%d bytes successfully copied to sha256 hash function\n", copied)
+		  //fmt.Printf("%d bytes successfully copied to sha256 hash function\n", copied)
 			bytereader.Seek(0, io.SeekStart)
-			copied, err = io.Copy(h512, bytereader);
+			_, err = io.Copy(h512, bytereader);
 			if err != nil {
 				fmt.Printf("error: Could not copy bytes from file into sha512 hash function: %s\n", err)
 				continue
 			}
-		  fmt.Printf("%d bytes successfully copied to sha512 hash function\n", copied)
+		  //fmt.Printf("%d bytes successfully copied to sha512 hash function\n", copied)
 			if count < 4096 {
 				break
 			}
-		  fmt.Printf("Continue to read from file\n")
+		  //fmt.Printf("Continue to read from file\n")
 		}
-		//fmt.Printf("%x\n", buffer)
-		fmt.Printf("%x  %s (sha256)\n", h256.Sum(nil), arg)
-		fmt.Printf("%x  %s (sha512)\n", h512.Sum(nil), arg)
+		//fmt.Printf("%s = %x\n", arg, h256.Sum(nil))
+		results256[arg] = h256.Sum(nil)
+		results512[arg] = h512.Sum(nil)
+	}
+
+	if counter > 0 {
+		for key, value := range results256 {
+			fmt.Printf("sha256: %128x  %s\n", value, key)
+			fmt.Printf("sha512: %128x  %s\n", results512[key], key)
+		}
+	} else {
+		fmt.Printf("syntax error: Give files as argument.")
 	}
 }
