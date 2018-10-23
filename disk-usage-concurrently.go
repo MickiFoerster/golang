@@ -27,7 +27,7 @@ func main() {
 		close(fileSizes)
 	}()
 
-	// Print results
+	// Print results periodically
 	var nfiles, nbytes int64
 	for size := range fileSizes {
 		nfiles++
