@@ -42,10 +42,25 @@ func walkDir(dir string, wg *sync.WaitGroup) {
 				cmd.Stderr = &stderr
 				err := cmd.Run()
 				if err != nil {
-					fmt.Printf("'git pull' in %s failed\n", dir)
+					fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, stdout, stderr)
 					continue
 				}
 				fmt.Printf("executed 'git pull' in %s successfully\n", dir)
+
+				// Test if submodules exist, if so then update submodules
+				gitmodules := filepath.Join(dir, ".gitmodules")
+				if _, err := os.Stat(gitmodules); !os.IsNotExist(err) {
+					cmd = exec.Command("git", "submodule", "update", "--init", "--recursive")
+					cmd.Dir = dir
+					cmd.Stdout = &stdout
+					cmd.Stderr = &stderr
+					err = cmd.Run()
+					if err != nil {
+						fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, stdout, stderr)
+						continue
+					}
+					fmt.Printf("executed 'git submodule update' in %s successfully\n", dir)
+				}
 			} else {
 				subdir := filepath.Join(dir, entry.Name())
 				wg.Add(1)
