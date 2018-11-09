@@ -21,6 +21,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	for i, cmd := range []string{"hostname", "ls -l", "netstat -tulpn", "asdf", "ps -ef"} {
+		err = executeCommand(connection, cmd)
+		if err != nil {
+			log.Printf("error: Remote execution of command #%d '%s' failed: %s", i, cmd, err)
+		}
+	}
+}
+
+func executeCommand(connection *ssh.Client, cmd string) error {
 	session, err := connection.NewSession()
 	if err != nil {
 		log.Fatal(err)
@@ -54,10 +64,7 @@ func main() {
 	}
 	go io.Copy(os.Stderr, stderr)
 
-	err = session.Run("hostname")
-	if err != nil {
-		log.Fatal(err)
-	}
+	return session.Run(cmd)
 }
 
 func SSHAgent() ssh.AuthMethod {
