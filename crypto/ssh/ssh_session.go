@@ -6,23 +6,36 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
 
+var n sync.WaitGroup
+
 func main() {
+	for _, sshhost := range os.Args[1:] {
+		n.Add(1)
+		go startSshConnection(sshhost)
+	}
+	n.Wait()
+}
+
+func startSshConnection(host string) {
 	sshConfig := &ssh.ClientConfig{
 		User:            "pi",
 		Auth:            []ssh.AuthMethod{SSHAgent()},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	connection, err := ssh.Dial("tcp", "192.168.0.41:22", sshConfig)
+	hostPlusPort := fmt.Sprintf("%s:%d", host, 22)
+	fmt.Println("Try to connect to ", hostPlusPort)
+	connection, err := ssh.Dial("tcp", hostPlusPort, sshConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	fmt.Println("Successful connected to ", hostPlusPort)
 	for i, cmd := range []string{"hostname", "ls -l", "netstat -tulpn", "asdf", "ps -ef"} {
 		fmt.Println("############ Start of command execution:", cmd, "###############")
 		err = executeCommand(connection, cmd)
@@ -31,6 +44,7 @@ func main() {
 		}
 		fmt.Println("############ End of command execution:", cmd, "###############")
 	}
+	n.Done()
 }
 
 func executeCommand(connection *ssh.Client, cmd string) error {
@@ -38,6 +52,8 @@ func executeCommand(connection *ssh.Client, cmd string) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer session.Close()
+
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          0,     // disable echoing
 		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
