@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -23,10 +24,12 @@ func main() {
 	}
 
 	for i, cmd := range []string{"hostname", "ls -l", "netstat -tulpn", "asdf", "ps -ef"} {
+		fmt.Println("############ Start of command execution:", cmd, "###############")
 		err = executeCommand(connection, cmd)
 		if err != nil {
-			log.Printf("error: Remote execution of command #%d '%s' failed: %s", i, cmd, err)
+			fmt.Printf("error: Remote execution of command #%d '%s' failed: %s\n", i, cmd, err)
 		}
+		fmt.Println("############ End of command execution:", cmd, "###############")
 	}
 }
 
