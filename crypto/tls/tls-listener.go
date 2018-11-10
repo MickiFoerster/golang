@@ -29,5 +29,16 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	fmt.Fprintln(conn, "Hello")
+	defer conn.Close()
+	remhost := conn.RemoteAddr().String()
+	fmt.Fprintln(conn, "Hello ", remhost)
+	var buffer []byte
+	n, err := conn.Read(buffer)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("Read %d bytes\n", n)
+	if n > 0 {
+		fmt.Fprintln(conn, buffer[:n])
+	}
 }
