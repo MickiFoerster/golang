@@ -9,15 +9,13 @@ func main() {
 	done := make(chan struct{})
 
 	go producer(c)
-	go consumer(c, done)
-	go consumer(c, done)
-	go consumer(c, done)
-	go consumer(c, done)
-
-	<-done
-	<-done
-	<-done
-	<-done
+	const numGoRoutines = 4
+	for i := 0; i < numGoRoutines; i++ {
+		go consumer(c, done)
+	}
+	for i := 0; i < numGoRoutines; i++ {
+		<-done
+	}
 }
 
 func producer(c chan<- int) {
