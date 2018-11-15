@@ -15,7 +15,7 @@ type date struct {
 	Day   int
 }
 
-type MotoCrossDriver struct {
+type motoCrossDriver struct {
 	Forename     string
 	Surname      string
 	Birthdate    date `json:"date_of_birth"`
@@ -52,7 +52,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("error: Could not read JSON data: ", err)
 	}
-	var drivers []MotoCrossDriver
+	var drivers []motoCrossDriver
 	if err = json.Unmarshal(jsonData, &drivers); err != nil {
 		log.Fatalln("error: Could not unmarshal JSON data: ", err)
 	}

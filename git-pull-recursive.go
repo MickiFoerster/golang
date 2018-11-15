@@ -42,7 +42,7 @@ func walkDir(dir string, wg *sync.WaitGroup) {
 				cmd.Stderr = &stderr
 				err := cmd.Run()
 				if err != nil {
-					fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, stdout, stderr)
+					fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, cmd.Stdout, cmd.Stderr)
 					continue
 				}
 				fmt.Printf("executed 'git pull' in %s successfully\n", dir)
