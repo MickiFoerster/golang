@@ -17,15 +17,15 @@ var n sync.WaitGroup
 func main() {
 	for _, sshhost := range os.Args[1:] {
 		n.Add(1)
-		go startSshConnection(sshhost)
+		go startSSHConnection(sshhost)
 	}
 	n.Wait()
 }
 
-func startSshConnection(host string) {
+func startSSHConnection(host string) {
 	sshConfig := &ssh.ClientConfig{
 		User:            "pi",
-		Auth:            []ssh.AuthMethod{SSHAgent()},
+		Auth:            []ssh.AuthMethod{sshAgent()},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
@@ -86,7 +86,7 @@ func executeCommand(connection *ssh.Client, cmd string) error {
 	return session.Run(cmd)
 }
 
-func SSHAgent() ssh.AuthMethod {
+func sshAgent() ssh.AuthMethod {
 	sshAgent, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
 	if err != nil {
 		log.Fatal(err)

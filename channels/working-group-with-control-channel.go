@@ -1,30 +1,30 @@
 package main
 
-import "fmt" 
+import "fmt"
 
 func main() {
 	c := make(chan int)
-	control_channel := make(chan bool)
+	controlChannel := make(chan bool)
 
 	go func() {
-		for i := 0; i< 10; i++ {
+		for i := 0; i < 10; i++ {
 			c <- i
 		}
-		control_channel <- true
+		controlChannel <- true
 	}()
 
 	go func() {
-		for i := 10; i< 20; i++ {
+		for i := 10; i < 20; i++ {
 			c <- i
 		}
-		control_channel <- true
+		controlChannel <- true
 	}()
 
 	go func() {
-		<-control_channel 
-		<-control_channel 
+		<-controlChannel
+		<-controlChannel
 		close(c)
-		close(control_channel)
+		close(controlChannel)
 	}()
 
 	for n := range c {

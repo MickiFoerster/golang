@@ -12,7 +12,7 @@ type date struct {
 	Day   int
 }
 
-type MotoCrossDriver struct {
+type motoCrossDriver struct {
 	Forename     string
 	Surname      string
 	Birthdate    date `json:"date_of_birth"`
@@ -20,7 +20,7 @@ type MotoCrossDriver struct {
 	Currentbrand string
 }
 
-var drivers = []MotoCrossDriver{
+var drivers = []motoCrossDriver{
 	{
 		Forename: "Ken",
 		Surname:  "Roczen",
