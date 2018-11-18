@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,7 +11,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -20,16 +20,45 @@ var wg sync.WaitGroup
 var sessionOutput map[string]chan []byte
 
 func main() {
-	for _, host := range os.Args[1:] {
-		fmt.Println("Connect to host", host)
-		wg.Add(1)
-		go connectToHost(host)
+	if len(os.Args) > 1 {
+		ch2b := make(chan string)
+		var clients []chan string
+		go func() {
+			for cmd := range ch2b {
+				fmt.Println("Entered command", cmd)
+				fmt.Printf("Send command to %d clients\n", len(clients))
+				for _, cch := range clients {
+					fmt.Println("Broadcast", cmd)
+					cch <- cmd
+				}
+			}
+		}()
+		for _, host := range os.Args[1:] {
+			ch := make(chan string)
+			clients = append(clients, ch)
+			fmt.Println("DEBUG: number of clients:", len(clients))
+			fmt.Println("Connect to host", host)
+			wg.Add(1)
+			go connectToHost(host, ch)
+		}
+		wg.Wait()
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Print("ssh Broadcast>")
+			cmd, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+			fmt.Println("Put into channel", cmd)
+			ch2b <- cmd
+		}
+	} else {
+		fmt.Printf("Give the host names or IP addresses as command line option:\n"+
+			"%s host1 host2 ...\n", os.Args[0])
 	}
-	wg.Wait()
 }
 
-func connectToHost(host string) {
-	defer wg.Done()
+func connectToHost(host string, ch chan string) {
 	conn, err := startSSHConnection(host)
 	if err != nil {
 		fmt.Println(err)
@@ -37,67 +66,58 @@ func connectToHost(host string) {
 	}
 	defer conn.Close()
 
-	tmpfilename, err := createWindowForOutput()
-	if err != nil {
-		fmt.Println("Could not create window")
-		return
-	}
-	//defer os.Remove(tmpfilename)
-
-	session, err := conn.NewSession()
-	if err != nil {
-		fmt.Printf("error:%s: Could not create SSH session", host)
-		return
-	}
-
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          0,     // disable echoing
-		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-	}
-
-	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		fmt.Printf("error:%s: Could not get PTY\n", host)
-		return
-	}
-
-	tmpfile, err := os.Create(tmpfilename)
-	if err != nil {
-		fmt.Println("Could not open temporary file")
-		return
-	}
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		fmt.Println("Could not redirect stdout to temporary file")
-		return
-	}
-	go func() {
-		n, err := io.Copy(tmpfile, stdout)
-		if err != nil {
-			fmt.Println("error: io.Copy failed:", err)
-		}
-		fmt.Printf("%d bytes copied\n", n)
-		session.Close()
-		tmpfile.Close()
-		fmt.Println("copier finished")
-	}()
-
-	fmt.Println("Execute command")
-	session.Run("ls -l")
-	fmt.Println("Finished")
-	time.Sleep(100 * time.Millisecond)
-}
-
-func createWindowForOutput() (string, error) {
 	tmpfile, err := ioutil.TempFile("", "sshoutput")
 	if err != nil {
-		return "", err
+		fmt.Printf("error: Could create temporary file:", err)
+		return
+	}
+	fmt.Println("Create temp file")
+	go createWindowForOutput(tmpfile.Name())
+	fmt.Println("temp file created")
+
+	wg.Done() // send main ready signal
+
+	for cmd := range ch {
+		fmt.Println("Received command:", cmd)
+		session, err := conn.NewSession()
+		if err != nil {
+			fmt.Printf("error:%s: Could not create SSH session", host)
+			continue
+		}
+
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0,     // disable echoing
+			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+		}
+
+		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+			fmt.Printf("error:%s: Could not get PTY\n", host)
+			continue
+		}
+
+		stdout, err := session.StdoutPipe()
+		if err != nil {
+			fmt.Println("Could not redirect stdout to temporary file")
+			return
+		}
+		go func() {
+			_, err := io.Copy(tmpfile, stdout)
+			if err != nil {
+				fmt.Println("error: io.Copy failed:", err)
+			}
+			session.Close()
+		}()
+		session.Run(cmd)
 	}
 	tmpfile.Close()
-	cmd := exec.Command("/usr/bin/xterm", "-hold", "-e", "tail", "-f", tmpfile.Name())
-	err = cmd.Run()
+	os.Remove(tmpfile.Name())
+}
+
+func createWindowForOutput(tmpFilename string) {
+	cmd := exec.Command("/usr/bin/xterm", "-hold", "-e", "tail", "-f", tmpFilename)
+	err := cmd.Run()
 	fmt.Println("xterm:", err)
-	return tmpfile.Name(), nil
 }
 
 func startSSHConnection(host string) (*ssh.Client, error) {
