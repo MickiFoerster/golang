@@ -17,26 +17,21 @@ var sessionOutput map[string]chan []byte
 
 func main() {
 	if len(os.Args) > 1 {
-		ch2b := make(chan string)
+		collector := make(chan string)
 		var clients []chan string
-		go func() {
-			for cmd := range ch2b {
-				fmt.Println("Entered command", cmd)
-				fmt.Printf("Send command to %d clients\n", len(clients))
-				for _, cch := range clients {
-					fmt.Println("Broadcast", cmd)
-					cch <- cmd
-				}
-			}
-		}()
 		for _, host := range os.Args[1:] {
 			ch := make(chan string)
 			clients = append(clients, ch)
 			fmt.Println("DEBUG: number of clients:", len(clients))
 			fmt.Println("Connect to host", host)
 			go connectToHost(host, ch)
+			go func() {
+				for s := range ch {
+					collector <- s
+				}
+			}()
 		}
-		for output := range ch2b {
+		for output := range collector {
 			fmt.Println(output)
 		}
 	} else {
@@ -53,41 +48,37 @@ func connectToHost(host string, ch chan string) {
 	}
 	defer conn.Close()
 
-	for cmd := range ch {
-		fmt.Println("Received command:", cmd)
-		session, err := conn.NewSession()
-		if err != nil {
-			fmt.Printf("error:%s: Could not create SSH session", host)
-			continue
-		}
-
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-		}
-
-		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-			fmt.Printf("error:%s: Could not get PTY\n", host)
-			continue
-		}
-
-		stdout, err := session.StdoutPipe()
-		if err != nil {
-			fmt.Println("Could not redirect stdout to temporary file")
-			return
-		}
-		go func() {
-			_, err := io.Copy(tmpfile, stdout)
-			if err != nil {
-				fmt.Println("error: io.Copy failed:", err)
-			}
-			session.Close()
-		}()
-		session.Run(cmd)
+	session, err := conn.NewSession()
+	if err != nil {
+		fmt.Printf("error:%s: Could not create SSH session", host)
+		return
 	}
-	tmpfile.Close()
-	os.Remove(tmpfile.Name())
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+
+	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+		fmt.Printf("error:%s: Could not get PTY\n", host)
+		return
+	}
+
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		fmt.Println("Could not redirect stdout to temporary file")
+		return
+	}
+	go func() {
+		reader := strings.NewReader(stdout)
+		_, err := io.Copy(ch, stdout)
+		if err != nil {
+			fmt.Println("error: io.Copy failed:", err)
+		}
+		session.Close()
+	}()
+	session.Run("hostname")
 }
 
 func createWindowForOutput(tmpFilename string) {
