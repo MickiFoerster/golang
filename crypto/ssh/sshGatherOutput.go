@@ -6,37 +6,39 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
+	"path"
 	"strings"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
 
-var sessionOutput map[string]chan []byte
+var sessionOutput = make(map[string]string)
+var wg sync.WaitGroup
+var logFile *os.File
+
+func init() {
+	logFile, err := os.Create(fmt.Sprintf("%s.log", path.Base(os.Args[0])))
+	if err != nil {
+		fmt.Println("Could not create log file:", err)
+	}
+	log.SetOutput(logFile)
+}
 
 func main() {
+	if logFile != nil {
+		defer logFile.Close()
+	}
 	if len(os.Args) > 1 {
-		collector := make(chan string)
-		var clients []chan string
 		for _, host := range os.Args[1:] {
-			ch := make(chan string)
-			clients = append(clients, ch)
-			fmt.Println("DEBUG: number of clients:", len(clients))
-			fmt.Println("Connect to host", host)
-			go connectToHost(host, ch)
-			go func() {
-				for s := range ch {
-					fmt.Printf("Write %s to channel\n", s)
-					collector <- s
-					fmt.Printf("wrote %s to collector\n", s)
-				}
-			}()
+			wg.Add(1)
+			log.Println("Connect to host", host)
+			go connectToHost(host)
 		}
-		for output := range collector {
-			fmt.Println("DEBUG1")
-			fmt.Println(output)
-			fmt.Println("DEBUG2")
+		wg.Wait()
+		for k, v := range sessionOutput {
+			fmt.Println(k, v)
 		}
 	} else {
 		fmt.Printf("Give the host names or IP addresses as command line option:\n"+
@@ -44,7 +46,7 @@ func main() {
 	}
 }
 
-func connectToHost(host string, ch chan string) {
+func connectToHost(host string) {
 	conn, err := startSSHConnection(host)
 	if err != nil {
 		fmt.Println(err)
@@ -52,7 +54,8 @@ func connectToHost(host string, ch chan string) {
 	}
 	defer func() {
 		conn.Close()
-		fmt.Println("connection closed")
+		log.Println("connection closed")
+		wg.Done()
 	}()
 
 	session, err := conn.NewSession()
@@ -81,6 +84,7 @@ func connectToHost(host string, ch chan string) {
 		buffer := make([]byte, 4096)
 		for {
 			n, err := stdout.Read(buffer)
+			log.Printf("DEBUG: read %d bytes: %X\n", n, string(buffer[:n]))
 			if err != nil {
 				if err == io.EOF {
 					break
@@ -88,18 +92,18 @@ func connectToHost(host string, ch chan string) {
 				fmt.Println("error while reading remote stdout:", err)
 				break
 			}
-			ch <- string(buffer[:n])
+			processSessionOutput(conn, string(buffer[:n]))
 		}
 		session.Close()
-		fmt.Println("session closed")
+		log.Println("session closed")
 	}()
 	session.Run("hostname")
 }
 
-func createWindowForOutput(tmpFilename string) {
-	cmd := exec.Command("/usr/bin/xterm", "-hold", "-e", "tail", "-f", tmpFilename)
-	err := cmd.Run()
-	fmt.Println("xterm:", err)
+func processSessionOutput(conn ssh.Conn, output string) {
+	curValue := sessionOutput[conn.RemoteAddr().String()]
+	s := strings.TrimRight(output, "\r\n")
+	sessionOutput[conn.RemoteAddr().String()] = curValue + s
 }
 
 func startSSHConnection(host string) (*ssh.Client, error) {
@@ -126,9 +130,9 @@ func startSSHConnection(host string) (*ssh.Client, error) {
 		port = s[1]
 	}
 
-	fmt.Println(user)
-	fmt.Println(hostname)
-	fmt.Println(port)
+	log.Println("user:", user)
+	log.Println("hostname:", hostname)
+	log.Println("port:", port)
 	sshConfig := &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{sshAgent()},
@@ -136,12 +140,12 @@ func startSSHConnection(host string) (*ssh.Client, error) {
 	}
 
 	hostPlusPort := fmt.Sprintf("%s:%s", hostname, port)
-	fmt.Println("Try to connect to ", hostPlusPort)
+	log.Println("Try to connect to ", hostPlusPort)
 	conn, err := ssh.Dial("tcp", hostPlusPort, sshConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Could not connect to %q:", hostPlusPort, err)
 	}
-	fmt.Println("Successful connected to ", hostPlusPort)
+	log.Println("Successful connected to ", hostPlusPort)
 	return conn, nil
 }
 
