@@ -27,12 +27,16 @@ func main() {
 			go connectToHost(host, ch)
 			go func() {
 				for s := range ch {
+					fmt.Printf("Write %s to channel\n", s)
 					collector <- s
+					fmt.Printf("wrote %s to collector\n", s)
 				}
 			}()
 		}
 		for output := range collector {
+			fmt.Println("DEBUG1")
 			fmt.Println(output)
+			fmt.Println("DEBUG2")
 		}
 	} else {
 		fmt.Printf("Give the host names or IP addresses as command line option:\n"+
@@ -46,7 +50,10 @@ func connectToHost(host string, ch chan string) {
 		fmt.Println(err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		conn.Close()
+		fmt.Println("connection closed")
+	}()
 
 	session, err := conn.NewSession()
 	if err != nil {
@@ -71,12 +78,20 @@ func connectToHost(host string, ch chan string) {
 		return
 	}
 	go func() {
-		reader := strings.NewReader(stdout)
-		_, err := io.Copy(ch, stdout)
-		if err != nil {
-			fmt.Println("error: io.Copy failed:", err)
+		buffer := make([]byte, 4096)
+		for {
+			n, err := stdout.Read(buffer)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				fmt.Println("error while reading remote stdout:", err)
+				break
+			}
+			ch <- string(buffer[:n])
 		}
 		session.Close()
+		fmt.Println("session closed")
 	}()
 	session.Run("hostname")
 }
