@@ -1,9 +1,10 @@
-package main
+package gomon
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 
 	"github.com/fsnotify/fsnotify"
@@ -22,6 +23,12 @@ func main() {
 	}
 
 	GoFile := os.Args[1]
+	cmd := exec.Command("go", "run", GoFile)
+	fmt.Println("execute", cmd)
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	done := make(chan struct{})
 	go func() {
