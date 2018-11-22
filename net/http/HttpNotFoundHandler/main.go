@@ -12,7 +12,10 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func foo(w http.ResponseWriter, req *http.Request) {
-	fmt.Println(req.URL.Path)
+func foo(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+	}
+	fmt.Println(r.URL.Path)
 	fmt.Fprintln(w, "Example for send NOT FOUND for favicon.ico")
 }
