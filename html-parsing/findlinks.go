@@ -44,32 +44,36 @@ func main() {
 // starts the search for links afterwards.
 func htmlParse(url string) {
 	defer wg.Done()
-	htmldoc, err := http.Get(url)
+	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: Could not download %q\n", url)
 		return
 	}
 
-	htmlrootnode, err := html.Parse(htmldoc.Body)
-	htmldoc.Body.Close()
+	htmlrootnode, err := html.Parse(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: HTML parser failed: %v\n", err)
 		return
 	}
-	links[url] = visit(nil, htmlrootnode)
+	links[url] = visit(nil, htmlrootnode, resp)
 }
 
 // visit appends to links each link found in n and returns the result
-func visit(links []string, n *html.Node) []string {
+func visit(links []string, n *html.Node, resp *http.Response) []string {
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, a := range n.Attr {
 			if a.Key == "href" {
-				links = append(links, a.Val)
+				link, err := resp.Request.URL.Parse(a.Val)
+				if err != nil {
+					continue
+				}
+				links = append(links, link.String())
 			}
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		links = visit(links, c)
+		links = visit(links, c, resp)
 	}
 	return links
 }
