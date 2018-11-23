@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 )
 
 type date struct {
@@ -50,11 +51,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("error: JSON marshaling failed: %s", err)
 	}
-	fmt.Printf("%s\n", data)
-	// Print in pretier with indentation
+	writeFile("drivers.json", data)
+
+	// Print in prettier with indentation
 	data, err = json.MarshalIndent(drivers, "", "    ")
 	if err != nil {
 		log.Fatalf("error: JSON marshaling failed: %s", err)
 	}
-	fmt.Printf("%s\n", data)
+	writeFile("drivers-prettier.json", data)
+}
+
+func writeFile(fn string, data []byte) {
+	fp, err := os.Create(fn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fp.Close()
+	n, err := fp.Write(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("File %q (%d bytes) written successfully.\n", fn, n)
 }
