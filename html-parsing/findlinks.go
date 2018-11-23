@@ -3,7 +3,12 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -13,8 +18,14 @@ import (
 	"golang.org/x/net/html"
 )
 
+type website struct {
+	url         string
+	contentHash string
+	links       []string
+}
+
 var wg sync.WaitGroup
-var links = make(map[string][]string, len(os.Args))
+var websites = make(map[string]website, len(os.Args))
 
 func main() {
 	if len(os.Args) == 1 {
@@ -32,12 +43,29 @@ func main() {
 	}
 	wg.Wait()
 
-	for url, linklist := range links {
-		fmt.Println(url, ":")
-		for _, link := range linklist {
-			fmt.Println(" ", link)
+	var w []website
+	for url, website := range websites {
+		w = append(w, website)
+		fmt.Println(url, ":", website.contentHash)
+		for _, link := range website.links {
+			fmt.Println("  ", link)
 		}
 	}
+
+	jsondata, err := json.MarshalIndent(w, "", "    ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fp, err := os.Create("websites.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fp.Close()
+	if _, err := fp.Write(jsondata); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Slice of websites were written to file successfully.\n")
 }
 
 // htmlParse get a URL as input and downloads the corresponding document and
@@ -50,13 +78,27 @@ func htmlParse(url string) {
 		return
 	}
 
-	htmlrootnode, err := html.Parse(resp.Body)
-	resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: HTML parser failed: %v\n", err)
+		fmt.Fprintln(os.Stderr, "error: Cannot read HTML body:", err)
 		return
 	}
-	links[url] = visit(nil, htmlrootnode, resp)
+	resp.Body.Close()
+
+	htmlrootnode, err := html.Parse(bytes.NewReader(data))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error: HTML parser failed:", err)
+		return
+	}
+
+	hash := sha256.Sum256(data)
+	hashstr := fmt.Sprintf("%x", hash)
+
+	websites[url] = website{
+		url:         url,
+		contentHash: hashstr,
+		links:       visit(nil, htmlrootnode, resp),
+	}
 }
 
 // visit appends to links each link found in n and returns the result
