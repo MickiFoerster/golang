@@ -19,9 +19,9 @@ import (
 )
 
 type website struct {
-	url         string
-	contentHash string
-	links       []string
+	URL         string
+	ContentHash string
+	Links       []string
 }
 
 var wg sync.WaitGroup
@@ -44,10 +44,10 @@ func main() {
 	wg.Wait()
 
 	var w []website
-	for url, website := range websites {
-		w = append(w, website)
-		fmt.Println(url, ":", website.contentHash)
-		for _, link := range website.links {
+	for url, ws := range websites {
+		w = append(w, ws)
+		fmt.Println(url, ":", ws.ContentHash)
+		for _, link := range ws.Links {
 			fmt.Println("  ", link)
 		}
 	}
@@ -95,9 +95,9 @@ func htmlParse(url string) {
 	hashstr := fmt.Sprintf("%x", hash)
 
 	websites[url] = website{
-		url:         url,
-		contentHash: hashstr,
-		links:       visit(nil, htmlrootnode, resp),
+		URL:         url,
+		ContentHash: hashstr,
+		Links:       visit(nil, htmlrootnode, resp),
 	}
 }
 
