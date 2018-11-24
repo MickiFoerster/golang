@@ -18,14 +18,34 @@ import (
 	"golang.org/x/net/html"
 )
 
+const websiteJSONFileName = "websites.json"
+
 type website struct {
-	URL         string
-	ContentHash string
-	Links       []string
+	URL      string
+	BodyHash string
+	Links    []string
 }
 
-var wg sync.WaitGroup
-var websites = make(map[string]website, len(os.Args))
+var (
+	wg       sync.WaitGroup
+	websites = make(map[string]website, len(os.Args))
+)
+
+func init() {
+	jsondata, err := ioutil.ReadFile(websiteJSONFileName)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "warning: Could not read from JSON file:", err)
+		return
+	}
+	var w []website
+	if err := json.Unmarshal(jsondata, &w); err != nil {
+		log.Fatal(err)
+	}
+	for _, ws := range w {
+		websites[ws.URL] = ws
+	}
+	fmt.Printf("Initialize websites data structure from JSON file %q successfully.\n", websiteJSONFileName)
+}
 
 func main() {
 	if len(os.Args) == 1 {
@@ -44,12 +64,14 @@ func main() {
 	wg.Wait()
 
 	var w []website
-	for url, ws := range websites {
+	for _, ws := range websites {
 		w = append(w, ws)
-		fmt.Println(url, ":", ws.ContentHash)
-		for _, link := range ws.Links {
-			fmt.Println("  ", link)
-		}
+		/*
+			fmt.Println(url, ":", ws.BodyHash)
+			for _, link := range ws.Links {
+				fmt.Println("  ", link)
+			}
+		*/
 	}
 
 	jsondata, err := json.MarshalIndent(w, "", "    ")
@@ -57,7 +79,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fp, err := os.Create("websites.json")
+	fp, err := os.Create(websiteJSONFileName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,19 +107,24 @@ func htmlParse(url string) {
 	}
 	resp.Body.Close()
 
+	hash := sha256.Sum256(data)
+	hashstr := fmt.Sprintf("%x", hash)
+
+	if hashstr == websites[url].BodyHash {
+		fmt.Printf("Body of %q same as before, so skip parsing.\n", url)
+		return
+	}
+
 	htmlrootnode, err := html.Parse(bytes.NewReader(data))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error: HTML parser failed:", err)
 		return
 	}
 
-	hash := sha256.Sum256(data)
-	hashstr := fmt.Sprintf("%x", hash)
-
 	websites[url] = website{
-		URL:         url,
-		ContentHash: hashstr,
-		Links:       visit(nil, htmlrootnode, resp),
+		URL:      url,
+		BodyHash: hashstr,
+		Links:    visit(nil, htmlrootnode, resp),
 	}
 }
 
