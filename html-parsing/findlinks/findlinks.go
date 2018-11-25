@@ -21,7 +21,7 @@ import (
 const websiteJSONFileName = "websites.json"
 
 type website struct {
-	URL      string
+	//URL      string
 	BodyHash string
 	Links    []string
 }
@@ -37,12 +37,8 @@ func init() {
 		fmt.Fprintln(os.Stderr, "warning: Could not read from JSON file:", err)
 		return
 	}
-	var w []website
-	if err := json.Unmarshal(jsondata, &w); err != nil {
+	if err := json.Unmarshal(jsondata, &websites); err != nil {
 		log.Fatal(err)
-	}
-	for _, ws := range w {
-		websites[ws.URL] = ws
 	}
 	fmt.Printf("Initialize websites data structure from JSON file %q successfully.\n", websiteJSONFileName)
 }
@@ -63,28 +59,12 @@ func main() {
 	}
 	wg.Wait()
 
-	var w []website
-	for _, ws := range websites {
-		w = append(w, ws)
-		/*
-			fmt.Println(url, ":", ws.BodyHash)
-			for _, link := range ws.Links {
-				fmt.Println("  ", link)
-			}
-		*/
-	}
-
-	jsondata, err := json.MarshalIndent(w, "", "    ")
+	jsondata, err := json.MarshalIndent(websites, "", "    ")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fp, err := os.Create(websiteJSONFileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fp.Close()
-	if _, err := fp.Write(jsondata); err != nil {
+	if err := ioutil.WriteFile(websiteJSONFileName, jsondata, 0644); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Slice of websites were written to file successfully.\n")
@@ -111,7 +91,7 @@ func htmlParse(url string) {
 	hashstr := fmt.Sprintf("%x", hash)
 
 	if hashstr == websites[url].BodyHash {
-		fmt.Printf("Body of %q same as before, so skip parsing.\n", url)
+		fmt.Printf("Body of %q is same as before, so skip parsing.\n", url)
 		return
 	}
 
@@ -122,10 +102,11 @@ func htmlParse(url string) {
 	}
 
 	websites[url] = website{
-		URL:      url,
+		//URL:      url,
 		BodyHash: hashstr,
 		Links:    visit(nil, htmlrootnode, resp),
 	}
+	fmt.Printf("Body of %q was updated successfully.\n", url)
 }
 
 // visit appends to links each link found in n and returns the result
