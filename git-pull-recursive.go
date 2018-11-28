@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 )
 
 var verbose = flag.Bool("v", false, "show verbose progress messages")
@@ -22,27 +22,39 @@ func main() {
 	}
 
 	// Traverse each root of the file tree in parallel
-	var wg sync.WaitGroup
 	for _, root := range roots {
-		wg.Add(1)
-		go walkDir(root, &wg)
+		walkDir(root)
 	}
-	wg.Wait()
 }
 
-func walkDir(dir string, wg *sync.WaitGroup) {
-	defer wg.Done()
+func walkDir(dir string) {
 	for _, entry := range dirents(dir) {
 		if entry.IsDir() {
 			if entry.Name() == ".git" {
-				var stdout, stderr bytes.Buffer
 				cmd := exec.Command("git", "pull")
 				cmd.Dir = dir
-				cmd.Stdout = &stdout
-				cmd.Stderr = &stderr
-				err := cmd.Run()
+				stdout, err := cmd.StdoutPipe()
 				if err != nil {
-					fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, cmd.Stdout, cmd.Stderr)
+					log.Println("Could not get stdout from command:", err)
+					return
+				}
+				go io.Copy(os.Stdout, stdout)
+
+				stderr, err := cmd.StderrPipe()
+				if err != nil {
+					log.Println("Could not get stderr from command:", err)
+					return
+				}
+				go io.Copy(os.Stderr, stderr)
+
+				err = cmd.Start()
+				if err != nil {
+					log.Println("Could not start command:", err)
+					return
+				}
+
+				if err := cmd.Wait(); err != nil {
+					fmt.Printf("'git pull' in %s failed: %s\n", dir, err)
 					continue
 				}
 				fmt.Printf("executed 'git pull' in %s successfully\n", dir)
@@ -52,19 +64,35 @@ func walkDir(dir string, wg *sync.WaitGroup) {
 				if _, err := os.Stat(gitmodules); !os.IsNotExist(err) {
 					cmd = exec.Command("git", "submodule", "update", "--init", "--recursive")
 					cmd.Dir = dir
-					cmd.Stdout = &stdout
-					cmd.Stderr = &stderr
-					err = cmd.Run()
+					stdout, err := cmd.StdoutPipe()
 					if err != nil {
-						fmt.Printf("'git pull' in %s failed:\nstdout: %s\nstderr: %s\n", dir, stdout, stderr)
+						log.Println("Could not get stdout from command:", err)
+						return
+					}
+					go io.Copy(os.Stdout, stdout)
+
+					stderr, err := cmd.StderrPipe()
+					if err != nil {
+						log.Println("Could not get stderr from command:", err)
+						return
+					}
+					go io.Copy(os.Stderr, stderr)
+
+					err = cmd.Start()
+					if err != nil {
+						log.Println("Could not start command:", err)
+						return
+					}
+
+					if err := cmd.Wait(); err != nil {
+						log.Println("'git submodule update' in %s failed:", err)
 						continue
 					}
 					fmt.Printf("executed 'git submodule update' in %s successfully\n", dir)
 				}
 			} else {
 				subdir := filepath.Join(dir, entry.Name())
-				wg.Add(1)
-				go walkDir(subdir, wg)
+				walkDir(subdir)
 			}
 		}
 	}
