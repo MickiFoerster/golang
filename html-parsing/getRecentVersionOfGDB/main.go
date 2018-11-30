@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/html"
 )
@@ -24,11 +25,23 @@ func handleErr(err error) {
 	}
 }
 
+var recentReleaseLocationFound = false
+var recentReleaseLinkFound = false
+
 func traverseDOM(node *html.Node) {
-	fmt.Println(node.Data)
-	if node.Data == "The most recent release" {
-		fmt.Println(node.Type)
+	if recentReleaseLinkFound && recentReleaseLocationFound {
+		fmt.Println("The most recent GDB version is:", node.Data)
+		recentReleaseLinkFound = false
+		recentReleaseLocationFound = false
 	}
+	if node.Type == html.ElementNode && node.Data == "a" && recentReleaseLocationFound {
+		recentReleaseLinkFound = true
+	}
+
+	if !recentReleaseLocationFound && strings.Index(node.Data, "The most recent release") != -1 {
+		recentReleaseLocationFound = true
+	}
+
 	for c := node.FirstChild; c != nil; c = c.NextSibling {
 		traverseDOM(c)
 	}
