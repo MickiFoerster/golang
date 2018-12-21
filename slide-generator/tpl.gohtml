@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style>
+      h1 { display: flex; font-size:48px; background-color: blue; }
+      section#slide { display: flex; font-weight: bold; }
+      #item { padding: 10px; }
+    </style>
+    <meta charset="UTF-8">
+    <title>{{.Title}}</title>
+  </head>
+  <body>
+
+    <header>
+      <h1>{{.Headline}}</h1>
+    </header>
+
+    <section id="slide">
+      <ul id="items">
+      {{range .Items}}
+        <li id="item"> {{.}} </li>
+      {{end}}
+      </ul>
+    </section>
+
+    <footer>
+      <p>author: {{.Author}}</p>
+      <p>date: {{.Date}}</p>
+    </footer>
+  </body>
+</html>
