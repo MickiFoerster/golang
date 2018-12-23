@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="https://necolas.github.io/normalize.css/8.0.1/normalize.css">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans|Roboto" rel="stylesheet">
+    
+    <style>
+      body {
+        border: 1px solid red;
+        border-radius: 3px;
+        padding: 1rem 1rem;
+        font-family: 'Roboto', sans-serif; 
+        font-size: 2rem;
+      }
+      header {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+        border: 2px solid hotpink;
+      }
+      section {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+        border: 2px solid blue;
+      }
+      footer {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+        border: 2px solid green;
+        font-size: 1rem;
+      }
+      .answer {
+        width: 6rem;
+        background-color:white;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+        {{.Challenge}}
+    </header>
+    <section>
+        <form action="/" method="post">
+          <label for="answer">{{.Answerlabel}}:</label>
+          <input class="answer" name="answer" id="answer" autofocus>
+        </form>
+    </section>
+    <footer>Das ist Deine {{.Counter}}. Aufgabe.</footer>
+  </body>
+</html>

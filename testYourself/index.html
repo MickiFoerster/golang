@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" type="text/css" href="https://necolas.github.io/normalize.css/8.0.1/normalize.css">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans|Roboto" rel="stylesheet">
+    
+    <style>
+      body {
+        border: 1px solid red;
+        border-radius: 3px;
+        padding: 1rem 1rem;
+        font-family: 'Roboto', sans-serif; 
+        font-size: 2rem;
+      }
+      header {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+        border: 2px solid hotpink;
+      }
+      section {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+        border: 2px solid blue;
+      }
+      footer {
+        border: 2px solid green;
+      }
+      .answer {
+        width: 6rem;
+        background-color:white;
+      }
+      /*
+    .emph {
+      font-weight: bold;
+    }
+    body {
+      font-family: 'Roboto', sans-serif; 
+      font-size: 64px;
+      border: 1px solid rgb(202, 250, 234);
+      padding: 1rem 1rem;
+      border-radius: 3px;
+    }
+    */
+    </style>
+  </head>
+  <body>
+    <header>
+        Wieviel ist 3+4?
+      </header>
+    <section>
+        <form action="/response" method="post">
+          <label for="answer">Antwort:</label>
+          <input class="answer" name="answer" id="answer">
+        </form>
+    </section>
+    <footer></footer>
+  </body>
+</html>
