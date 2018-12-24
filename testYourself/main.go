@@ -14,6 +14,21 @@ var pseudoRandomGenSeed = rand.NewSource(time.Now().UnixNano())
 var pseudoRandomGen = rand.New(pseudoRandomGenSeed)
 var taskCounter = 1
 
+type task struct {
+	Operation    string
+	OperandLeft  int
+	OperandRight int
+}
+
+type answer struct {
+	Answered         bool
+	GivenAnswer      int
+	CorrectAnswer    int
+	AnswerWasCorrect bool
+}
+
+var tasks = make(map[*task]answer)
+
 func init() {
 	tpl = template.Must(template.ParseFiles("tpl.gohtml"))
 }
@@ -41,16 +56,14 @@ func serveMainRoute(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	r1 := pseudoRandomGen.Intn(10) + 1
-	r1s := fmt.Sprint(r1)
-	r2 := pseudoRandomGen.Intn(10) + 1
-	r2s := fmt.Sprint(r2)
+	task := createTask()
+	challenge := fmt.Sprintf("Was ist %s + %s?", fmt.Sprint(task.OperandLeft), fmt.Sprint(task.OperandRight))
 	data := struct {
 		Challenge   string
 		Answerlabel string
 		Counter     int
 	}{
-		Challenge:   "Was ist " + r1s + " + " + r2s + "?",
+		Challenge:   challenge,
 		Answerlabel: "Antwort",
 		Counter:     taskCounter,
 	}
@@ -59,4 +72,16 @@ func serveMainRoute(w http.ResponseWriter, req *http.Request) {
 		log.Fatal(err)
 	}
 	taskCounter++
+}
+
+func createTask() *task {
+	t := new(task)
+	t.Operation = "+"
+	t.OperandLeft = pseudoRandomGen.Intn(10) + 1
+	t.OperandRight = pseudoRandomGen.Intn(10) + 1
+	tasks[t] = task{
+		Answered:      false,
+		CorrectAnswer: t.OperandLeft + t.OperandRight,
+	}
+	return t
 }
