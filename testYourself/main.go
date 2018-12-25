@@ -57,6 +57,8 @@ func serveMainRoute(w http.ResponseWriter, req *http.Request) {
 	}
 
 	task := createTask()
+	fmt.Println(task)
+	fmt.Println(tasks[task])
 	challenge := fmt.Sprintf("Was ist %s + %s?", fmt.Sprint(task.OperandLeft), fmt.Sprint(task.OperandRight))
 	data := struct {
 		Challenge   string
@@ -79,9 +81,21 @@ func createTask() *task {
 	t.Operation = "+"
 	t.OperandLeft = pseudoRandomGen.Intn(10) + 1
 	t.OperandRight = pseudoRandomGen.Intn(10) + 1
-	tasks[t] = task{
+	tasks[t] = answer{
 		Answered:      false,
 		CorrectAnswer: t.OperandLeft + t.OperandRight,
 	}
 	return t
+}
+
+func (a answer) String() string {
+	s := fmt.Sprintln(a.Answered)
+	s += fmt.Sprintln(a.GivenAnswer)
+	s += fmt.Sprintln(a.CorrectAnswer)
+	s += fmt.Sprintln(a.AnswerWasCorrect)
+	return s
+}
+
+func (t task) String() string {
+	return fmt.Sprint(t.OperandLeft) + t.Operation + fmt.Sprint(t.OperandRight)
 }
