@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -28,6 +29,7 @@ type answer struct {
 }
 
 var tasks = make(map[*task]answer)
+var currentTask *task
 
 func init() {
 	tpl = template.Must(template.ParseFiles("tpl.gohtml"))
@@ -42,30 +44,41 @@ func main() {
 }
 
 func serveMainRoute(w http.ResponseWriter, req *http.Request) {
+	answerWasCorrect := false
 	log.Printf("Serving URL %q", req.URL)
 	err := req.ParseForm()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if len(req.PostForm) > 0 {
-		for _, values := range req.PostForm {
-			for _, val := range values {
-				log.Println(val)
+	if len(req.PostForm) > 0 && len(req.PostForm["answer"]) == 1 {
+		a := req.PostForm["answer"][0]
+		taskCounter++
+		// show results
+		fmt.Println(a)
+		i, err := strconv.Atoi(a)
+		if err == nil {
+			if i == tasks[currentTask].CorrectAnswer {
+				answerWasCorrect = true
 			}
+			currentTask = nil
 		}
 	}
 
-	task := createTask()
-	fmt.Println(task)
-	fmt.Println(tasks[task])
-	challenge := fmt.Sprintf("Was ist %s + %s?", fmt.Sprint(task.OperandLeft), fmt.Sprint(task.OperandRight))
+	if currentTask == nil {
+		currentTask = createTask()
+		//fmt.Println(currentTask)
+		//fmt.Println(tasks[currentTask])
+	}
+	challenge := fmt.Sprintf("Was ist %s + %s?", fmt.Sprint(currentTask.OperandLeft), fmt.Sprint(currentTask.OperandRight))
 	data := struct {
 		Challenge   string
+		Response    bool
 		Answerlabel string
 		Counter     int
 	}{
 		Challenge:   challenge,
+		Response:    answerWasCorrect,
 		Answerlabel: "Antwort",
 		Counter:     taskCounter,
 	}
@@ -73,7 +86,6 @@ func serveMainRoute(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	taskCounter++
 }
 
 func createTask() *task {
