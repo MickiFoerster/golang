@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -36,18 +35,7 @@ func startSSHConnection(host string) {
 		log.Fatal(err)
 	}
 	fmt.Println("Successful connected to ", hostPlusPort)
-	for i, cmd := range []string{"hostname", "ls -l", "netstat -tulpn", "asdf", "ps -ef"} {
-		fmt.Println("############ Start of command execution:", cmd, "###############")
-		err = executeCommand(connection, cmd)
-		if err != nil {
-			fmt.Printf("error: Remote execution of command #%d '%s' failed: %s\n", i, cmd, err)
-		}
-		fmt.Println("############ End of command execution:", cmd, "###############")
-	}
-	n.Done()
-}
 
-func executeCommand(connection *ssh.Client, cmd string) error {
 	session, err := connection.NewSession()
 	if err != nil {
 		log.Fatal(err)
@@ -69,21 +57,41 @@ func executeCommand(connection *ssh.Client, cmd string) error {
 	if err != nil {
 		log.Fatal("Unable to setup stdin for session: %v", err)
 	}
-	go io.Copy(stdin, os.Stdin)
 
-	stdout, err := session.StdoutPipe()
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
+
+	// Start remote shell
+	err = session.Shell()
 	if err != nil {
-		log.Fatal("Unable to setup stdout for session: %v", err)
+		log.Fatal(err)
 	}
-	go io.Copy(os.Stdout, stdout)
 
-	stderr, err := session.StderrPipe()
+	// Send command by command
+	cmds := []string{
+		"hostname",
+		"ls -l",
+		"netstat -tulpn",
+		"asdf",
+		"ps -ef",
+		"exit",
+	}
+	for _, cmd := range cmds {
+		fmt.Println("############ Start of command execution:", cmd, "###############")
+		_, err = fmt.Fprintf(stdin, "%s\n", cmd)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("############ End of command execution:", cmd, "###############")
+	}
+
+	// Wait for session to finish
+	err = session.Wait()
 	if err != nil {
-		log.Fatal("Unable to setup stderr for session: %v", err)
+		log.Fatal(err)
 	}
-	go io.Copy(os.Stderr, stderr)
 
-	return session.Run(cmd)
+	n.Done()
 }
 
 func sshAgent() ssh.AuthMethod {
