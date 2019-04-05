@@ -99,7 +99,11 @@ func htmlParse(url string) {
 	for _, link := range visit(nil, htmlrootnode, resp) {
 		if strings.HasSuffix(link, ".mp3") {
 			wg.Add(1)
-			downloadMP3(link)
+			err := downloadMP3(link)
+			if err != nil {
+				log.Fatal("error while downloading MP3:", err)
+			}
+			log.Printf("File from %q successfully downloaded\n", link)
 		}
 	}
 }
@@ -118,7 +122,11 @@ func visit(links []string, n *html.Node, resp *http.Response) []string {
 						}
 						//fmt.Println(jsonData)
 						for _, episode := range jsonData.Episodes {
-							links = append(links, episode.URL)
+							if i := strings.Index(episode.URL[7:], "http"); i != -1 {
+								links = append(links, episode.URL[7+i:])
+							} else {
+								links = append(links, episode.URL)
+							}
 						}
 					}
 				}
@@ -132,6 +140,8 @@ func visit(links []string, n *html.Node, resp *http.Response) []string {
 }
 
 func downloadMP3(mp3URL string) error {
+	defer wg.Done()
+
 	response, err := http.Get(mp3URL)
 	if err != nil {
 		return err
@@ -139,6 +149,7 @@ func downloadMP3(mp3URL string) error {
 	defer response.Body.Close()
 
 	filename := path.Base(response.Request.URL.Path)
+	log.Printf("Start download of %q\n", filename)
 	outputFile, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -146,13 +157,6 @@ func downloadMP3(mp3URL string) error {
 	defer outputFile.Close()
 
 	_, err = io.Copy(outputFile, response.Body)
-	if err != nil {
-		return err
-	}
 
-	defer func() {
-		fmt.Printf("File %q successfully downloaded", filename)
-	}()
-
-	return nil
+	return err
 }
