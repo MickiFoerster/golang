@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 var sessionOutput = make(map[string]string)
@@ -50,6 +51,7 @@ func connectToHost(host string) {
 	conn, err := startSSHConnection(host)
 	if err != nil {
 		fmt.Println(err)
+		wg.Done()
 		return
 	}
 	defer func() {
@@ -133,17 +135,23 @@ func startSSHConnection(host string) (*ssh.Client, error) {
 	log.Println("user:", user)
 	log.Println("hostname:", hostname)
 	log.Println("port:", port)
+
+	hostKeyCallback, err := knownhosts.New(fmt.Sprintf("/home/%s/.ssh/known_hosts", os.Getenv("USER")))
+	if err != nil {
+		log.Fatalln("could not create host key callback function:", err)
+	}
+
 	sshConfig := &ssh.ClientConfig{
 		User:            user,
 		Auth:            []ssh.AuthMethod{sshAgent()},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 	}
 
 	hostPlusPort := fmt.Sprintf("%s:%s", hostname, port)
 	log.Println("Try to connect to ", hostPlusPort)
 	conn, err := ssh.Dial("tcp", hostPlusPort, sshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Could not connect to %q:", hostPlusPort, err)
+		return nil, fmt.Errorf("Could not connect to %q: %s", hostPlusPort, err)
 	}
 	log.Println("Successful connected to ", hostPlusPort)
 	return conn, nil
