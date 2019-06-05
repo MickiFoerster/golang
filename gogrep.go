@@ -78,6 +78,8 @@ func grep(fn string) error {
 	linestart := 0
 
 	// Replace this by Bayer Moore Search
+	// Store index at pattern end and then go through text backwards until full
+	// pattern was found
 	buf := make([]byte, 32)
 	n := 0
 	for {
