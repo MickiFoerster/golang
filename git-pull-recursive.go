@@ -85,7 +85,7 @@ func walkDir(dir string) {
 					}
 
 					if err := cmd.Wait(); err != nil {
-						log.Println("'git submodule update' in %s failed:", err)
+						log.Printf("'git submodule update' in %s failed:", err)
 						continue
 					}
 					fmt.Printf("executed 'git submodule update' in %s successfully\n", dir)
