@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -59,6 +59,8 @@ func walker(path string, info os.FileInfo, err error) error {
 }
 
 func grep(fn string) error {
+	defer wg.Done()
+
 	if len(os.Args) != 2 {
 		return fmt.Errorf("syntax error: Give pattern to search for as first argument")
 	}
@@ -72,47 +74,44 @@ func grep(fn string) error {
 	}
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanBytes)
-
 	linecounter := 1
-	counter := 0
-	buf := make([]byte, 128)
+	linestart := 0
 
-	for scanner.Scan() {
-		bytes := scanner.Bytes()
-		for _, b := range bytes {
+	// Replace this by Bayer Moore Search
+	buf := make([]byte, 32)
+	n := 0
+	for {
+		var err error
+		linestart = 0
+		if n == 0 {
+			n, err = f.Read(buf)
+		} else {
+			for i := 0; i < patternlen; i++ {
+				buf[i] = buf[n-patternlen+i]
+			}
+			n, err = f.Read(buf[patternlen:])
+			n += patternlen
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		for i := 0; i < n; i++ {
+			b := buf[i]
 			if b == '\n' {
-				if matched := regExpr.Match(buf[:counter]); matched {
-					fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf))
+				if patternlen <= i-linestart+1 {
+					log.Printf("look into line %v '%s'\n", linecounter, string(buf[linestart:i]))
+					if matched := regExpr.Match(buf[linestart:i]); matched {
+						fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf[linestart:i]))
+					}
 				}
 				linecounter++
-				counter = 0
+				linestart = i + 1
 			}
-			if counter+1 == len(buf) {
-				if matched := regExpr.Match(buf); matched {
-					fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf))
-				}
-
-				for i := 0; i < patternlen; i++ {
-					buf[i] = buf[len(buf)-patternlen+i]
-				}
-				counter = patternlen
-			}
-			buf[counter] = b
-			counter++
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error: read operation failed: %s", err)
-	}
-
-	if counter > 0 {
-		if matched := regExpr.Match(buf[:counter]); matched {
-			fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf))
-		}
-	}
-	wg.Done()
 
 	return nil
 }
