@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sync"
 )
 
@@ -19,6 +18,10 @@ var (
 )
 
 func main() {
+	if len(os.Args) != 2 {
+		log.Fatal("syntax error: Give pattern to search for as first argument")
+	}
+
 	go func() {
 		concurrentSemaphore := make(chan struct{}, 32)
 		for fn := range filelist {
@@ -61,12 +64,9 @@ func walker(path string, info os.FileInfo, err error) error {
 func grep(fn string) error {
 	defer wg.Done()
 
-	if len(os.Args) != 2 {
-		return fmt.Errorf("syntax error: Give pattern to search for as first argument")
-	}
-	pattern := fmt.Sprintf(`.*%s.*`, os.Args[1])
+	pattern := os.Args[1]
 	patternlen := len(os.Args[1])
-	regExpr := regexp.MustCompile(pattern)
+	//regExpr := regexp.MustCompile(pattern)
 
 	f, err := os.Open(fn)
 	if err != nil {
@@ -77,23 +77,14 @@ func grep(fn string) error {
 	linecounter := 1
 	linestart := 0
 
-	// Replace this by Bayer Moore Search
-	// Store index at pattern end and then go through text backwards until full
-	// pattern was found
 	buf := make([]byte, 32)
 	n := 0
+	patternidx := 0
 	for {
 		var err error
+		linematches := false
 		linestart = 0
-		if n == 0 {
-			n, err = f.Read(buf)
-		} else {
-			for i := 0; i < patternlen; i++ {
-				buf[i] = buf[n-patternlen+i]
-			}
-			n, err = f.Read(buf[patternlen:])
-			n += patternlen
-		}
+		n, err = f.Read(buf)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -102,16 +93,31 @@ func grep(fn string) error {
 		}
 		for i := 0; i < n; i++ {
 			b := buf[i]
-			if b == '\n' {
-				if patternlen <= i-linestart+1 {
-					log.Printf("look into line %v '%s'\n", linecounter, string(buf[linestart:i]))
-					if matched := regExpr.Match(buf[linestart:i]); matched {
-						fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf[linestart:i]))
-					}
+			if b == pattern[patternidx] {
+				if patternidx+1 == patternlen {
+					linematches = true
+					patternidx = 0
+				} else {
+					patternidx++
 				}
-				linecounter++
-				linestart = i + 1
+			} else {
+				patternidx = 0
 			}
+
+			if b == '\n' {
+				if linematches {
+					fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf[linestart:i+1]))
+					linematches = false
+				}
+
+				linecounter++
+				if i+1 < n {
+					linestart = i + 1
+				}
+			}
+		}
+		if linematches {
+			fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf[linestart:n]))
 		}
 	}
 
