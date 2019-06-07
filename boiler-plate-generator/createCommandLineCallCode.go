@@ -1,37 +1,36 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"text/template"
 )
 
-const Ccode = `
-#include <unistd.h>
+var tpl *template.Template
 
-int main(int argc, char *argv[]) {
-  pid_t pid = fork();
-	if (pid == -1 ) {
-		perror("fork failed");
-		exit(EXIT_FAILURE);
-	} else if(pid == 0) { // child process
-	  char *const args[] = {
-		{{range $arg := .}} "{{$arg}}", {{end}}
-		  NULL
-		}
-	} else { // parent
-	  waitpid(pid, NULL, 0);
-	}
-
-  return 0;
+type execvCall struct {
+	Path string
+	Args []string
 }
-`
+
+func init() {
+	tpl = template.Must(template.ParseFiles("createCommandLineCallCodeC.gotemplate"))
+}
 
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatalf("syntax error: At least one parameter must be provided. For example:\n%s ls -l -t", os.Args[0])
 	}
 
-	t := template.Must(template.New("Ccode").Parse(Ccode))
-	t.Execute(os.Stdout, os.Args[1:])
+	execv := execvCall{os.Args[1], os.Args[1:]}
+
+	if _, err := os.Stat(execv.Path); os.IsNotExist(err) {
+		fmt.Fprintln(os.Stderr, "warning: First argument has to be full path to existent file.")
+	}
+
+	err := tpl.ExecuteTemplate(os.Stdout, "createCommandLineCallCodeC.gotemplate", execv)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
