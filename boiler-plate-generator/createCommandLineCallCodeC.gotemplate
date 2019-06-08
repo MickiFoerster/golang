@@ -6,19 +6,34 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-int main(void) {
+void readOutput(char const * const buf, ssize_t const n) {
+  ssize_t i;
+  const char msg[] = "read from pipe: ";
+  fprintf(stderr, msg);
+  for (i = 0; i < n; ++i) {
+    if (buf[i] == '\n') {
+      fprintf(stderr, "\n%s", msg);
+    } else {
+      fprintf(stderr, "%c", buf[i]);
+    }
+  }
+}
+
+int callCommand(void) {
+  const int error = -1;
+  const int ok = -1;
   int rc;
   int filedes[2];
 
   rc = pipe(filedes);
   if (rc == -1) {
     perror("pipe");
-    exit(EXIT_FAILURE);
+    return error;
   }
   pid_t pid = fork();
 	if (pid == -1 ) {
 		perror("fork failed");
-		exit(EXIT_FAILURE);
+		return error;
 	} else if(pid == 0) { // child process
           const char path[] = "{{.Path}}";
           char *const args[] = {
@@ -33,7 +48,7 @@ int main(void) {
               if (errno == EINTR)
                 continue;
               perror("dup2");
-              exit(EXIT_FAILURE);
+              return error;
             }
             break;
           }
@@ -55,25 +70,21 @@ int main(void) {
                 continue;
               } else {
                 perror("read");
-                exit(EXIT_FAILURE);
+                return error;
               }
             } else if (n == 0) {
               break; // EOF
             } else {
-              ssize_t i;
-              fprintf(stderr, "catched from child process: ");
-              for (i = 0; i < n; ++i) {
-                if (buf[i] == '\n') {
-                  fprintf(stderr, "\ncatched from child process: ");
-                } else {
-                  fprintf(stderr, "%c", buf[i]);
-                }
-              }
+              readOutput(buf, n);
             }
           }
           close(filedes[0]); // close pipe exit for parent
         }
 
-  return 0;
+  return ok;
+}
+
+int main() {
+  return callCommand();
 }
 

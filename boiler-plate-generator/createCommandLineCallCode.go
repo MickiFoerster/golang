@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"text/template"
 )
 
@@ -29,8 +30,40 @@ func main() {
 		fmt.Fprintln(os.Stderr, "warning: First argument has to be full path to existent file.")
 	}
 
-	err := tpl.ExecuteTemplate(os.Stdout, "createCommandLineCallCodeC.gotemplate", execv)
+	const fn = "main.c"
+	f, err := os.Create(fn)
 	if err != nil {
 		log.Fatal(err)
+	}
+	defer f.Close()
+
+	err = tpl.Execute(f, execv)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("C code has been written to %q.\n", fn)
+
+	fmt.Println("Consider to test this code by using:")
+	fmt.Printf("gcc -std=c11 -Wall -Werror %s\n", fn)
+	fmt.Printf("clang -std=c17 -Wall -Werror %s\n", fn)
+
+	fmt.Println("Will that do for you:")
+
+	args := []string{"-std=c11", "-Wall", "-Werror", fn}
+	gcc := exec.Command("gcc", args...)
+	err = gcc.Run()
+	if err != nil {
+		fmt.Println("gcc failed:", err)
+	} else {
+		fmt.Println("gcc succeeded")
+	}
+
+	clang := exec.Command("clang", args...)
+	err = clang.Run()
+	if err != nil {
+		fmt.Println("clang failed:", err)
+	} else {
+		fmt.Println("clang succeeded")
 	}
 }
