@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -37,14 +40,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
 
 	err = tpl.Execute(f, execv)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	f.Close()
 	fmt.Printf("C code has been written to %q.\n", fn)
+
+	// Postprocess with clang-format
+	applyClangFormat(fn)
 
 	fmt.Println("Consider to test this code by using:")
 	fmt.Printf("gcc -std=c11 -Wall -Werror %s\n", fn)
@@ -69,5 +75,70 @@ func showResult(err error, msg string) {
 		fmt.Println(err)
 	} else {
 		color.Green(" [OK] ")
+	}
+}
+
+func applyClangFormat(fn string) {
+	clangformat := exec.Command("clang-format", fn)
+	stdout, err := clangformat.StdoutPipe()
+	if err != nil {
+		fmt.Println("Could not redirect stdout of clang-format", err)
+		return
+	}
+	reader := bufio.NewReader(stdout)
+	if err = clangformat.Start(); err != nil {
+		fmt.Println("Could not start clang-format", err)
+		return
+	}
+
+	tmpfile, err := ioutil.TempFile("", "clangformat")
+	if err != nil {
+		fmt.Println("could create temporary file for applying clang-format", err)
+		return
+	}
+	defer os.Remove(tmpfile.Name())
+
+	for {
+		buf := make([]byte, 4096)
+		n, err := reader.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println("Could not read from stdout of clang-format", err)
+			return
+		}
+		n, err = tmpfile.Write(buf[:n])
+		if err != nil {
+			fmt.Println("could not write to temporary file", err)
+			return
+		}
+	}
+	tmpfile.Close()
+
+	if clangformat.Wait(); err != nil {
+		fmt.Println("Wait() failed for clang-format", err)
+		return
+	}
+
+	// Copy tmpfile content to main.c
+	src, err := os.Open(tmpfile.Name())
+	if err != nil {
+		fmt.Println("could not open temporary file", err)
+		return
+	}
+	defer src.Close()
+
+	dst, err := os.Create(fn)
+	if err != nil {
+		fmt.Println("could not open target file", fn, err)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		fmt.Println("could not copy temporary file to", fn, err)
+		return
 	}
 }

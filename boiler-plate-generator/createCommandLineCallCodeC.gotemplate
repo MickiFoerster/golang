@@ -31,55 +31,55 @@ int callCommand(void) {
     return error;
   }
   pid_t pid = fork();
-	if (pid == -1 ) {
-		perror("fork failed");
-		return error;
-	} else if(pid == 0) { // child process
-          const char path[] = "{{.Path}}";
-          char *const args[] = {
-          {{range $arg := .Args}} "{{$arg}}", {{end}}
-            NULL
-          };
+  if (pid == -1) {
+    perror("fork failed");
+    return error;
+  } else if (pid == 0) { // child process
+    const char path[] = "{{.Path}}";
+    char *const args[] = {
+    {{range $arg := .Args}} "{{$arg}}", {{end}}
+      NULL
+    };
 
-          // Reroute stdout to pipe
-          for (;;) {
-            rc = dup2(filedes[1], STDOUT_FILENO);
-            if (rc == -1) {
-              if (errno == EINTR)
-                continue;
-              perror("dup2");
-              return error;
-            }
-            break;
-          }
-          close(filedes[0]); // close exit for child
-          close(filedes[1]); // close entrance of pipe
-          rc = execv(path, args);
-          if (rc < 0) {
-            fprintf(stderr, "execv failed: %s\n", strerror(errno));
-          }
-        } else { // parent
-          close(filedes[1]); // close entrance of pipe in parent process
-          // Now parent process reads from exit of pipe
-          char buf[4096];
-          waitpid(pid, NULL, 0);
-          for (;;) {
-            ssize_t n = read(filedes[0], buf, sizeof(buf));
-            if (n == -1) {
-              if (errno == EINTR || errno == EAGAIN) {
-                continue;
-              } else {
-                perror("read");
-                return error;
-              }
-            } else if (n == 0) {
-              break; // EOF
-            } else {
-              readOutput(buf, n);
-            }
-          }
-          close(filedes[0]); // close pipe exit for parent
+    // Reroute stdout to pipe
+    for (;;) {
+      rc = dup2(filedes[1], STDOUT_FILENO);
+      if (rc == -1) {
+        if (errno == EINTR)
+          continue;
+        perror("dup2");
+        return error;
+      }
+      break;
+    }
+    close(filedes[0]); // close exit for child
+    close(filedes[1]); // close entrance of pipe
+    rc = execv(path, args);
+    if (rc < 0) {
+      fprintf(stderr, "execv failed: %s\n", strerror(errno));
+    }
+  } else {             // parent
+    close(filedes[1]); // close entrance of pipe in parent process
+    // Now parent process reads from exit of pipe
+    char buf[4096];
+    waitpid(pid, NULL, 0);
+    for (;;) {
+      ssize_t n = read(filedes[0], buf, sizeof(buf));
+      if (n == -1) {
+        if (errno == EINTR || errno == EAGAIN) {
+          continue;
+        } else {
+          perror("read");
+          return error;
         }
+      } else if (n == 0) {
+        break; // EOF
+      } else {
+        readOutput(buf, n);
+      }
+    }
+    close(filedes[0]); // close pipe exit for parent
+  }
 
   return ok;
 }
