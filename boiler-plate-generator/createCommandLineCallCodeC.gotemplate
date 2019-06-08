@@ -27,8 +27,16 @@ int main(void) {
           };
 
           // Reroute stdout to pipe
-          while (dup2(filedes[1], STDOUT_FILENO) == -1 && errno == EINTR)
-            ;
+          for (;;) {
+            rc = dup2(filedes[1], STDOUT_FILENO);
+            if (rc == -1) {
+              if (errno == EINTR)
+                continue;
+              perror("dup2");
+              exit(EXIT_FAILURE);
+            }
+            break;
+          }
           close(filedes[0]); // close exit for child
           close(filedes[1]); // close entrance of pipe
           rc = execv(path, args);
