@@ -52,17 +52,15 @@ func main() {
 	// Postprocess with clang-format
 	applyClangFormat(fn)
 
-	fmt.Println("Consider to test this code by using:")
+	fmt.Println("Now, we test this code by using:")
 	fmt.Printf("gcc -std=c11 -Wall -Werror %s\n", fn)
-	fmt.Printf("clang -std=c17 -Wall -Werror %s\n", fn)
-
-	fmt.Println("Will that do for you:")
 
 	args := []string{"-std=c11", "-Wall", "-Werror", fn}
 	gcc := exec.Command("gcc", args...)
 	err = gcc.Run()
 	showResult(err, "gcc")
 
+	fmt.Printf("clang -std=c17 -Wall -Werror %s\n", fn)
 	clang := exec.Command("clang", args...)
 	err = clang.Run()
 	showResult(err, "clang")
