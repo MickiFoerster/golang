@@ -53,27 +53,8 @@ func main() {
 	applyClangFormat(fn)
 
 	fmt.Println("Now, we test this code by using:")
-	fmt.Printf("gcc -std=c11 -Wall -Werror %s\n", fn)
-
-	args := []string{"-std=c11", "-Wall", "-Werror", fn}
-	gcc := exec.Command("gcc", args...)
-	err = gcc.Run()
-	showResult(err, "gcc")
-
-	fmt.Printf("clang -std=c17 -Wall -Werror %s\n", fn)
-	clang := exec.Command("clang", args...)
-	err = clang.Run()
-	showResult(err, "clang")
-}
-
-func showResult(err error, msg string) {
-	fmt.Print(msg)
-	if err != nil {
-		color.Red(" [failed] ")
-		fmt.Println(err)
-	} else {
-		color.Green(" [OK] ")
-	}
+	testOutputWithCompiler("gcc", fn)
+	testOutputWithCompiler("clang", fn)
 }
 
 func applyClangFormat(fn string) {
@@ -138,5 +119,25 @@ func applyClangFormat(fn string) {
 	if err != nil {
 		fmt.Println("could not copy temporary file to", fn, err)
 		return
+	}
+}
+
+func testOutputWithCompiler(compiler string, inputfile string) {
+	args := []string{"-std=c11", "-Wall", "-Werror", inputfile}
+	s := fmt.Sprint(compiler)
+	for _, arg := range args {
+		s += fmt.Sprintf(" %s", arg)
+	}
+	s += fmt.Sprint(": ")
+
+	cmd := exec.Command(compiler, args...)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("%-40s", s)
+		color.Red(" %10s ", "[failed]")
+		fmt.Println(err)
+	} else {
+		fmt.Printf("%-40s", s)
+		color.Green(" %10s ", "[OK]")
 	}
 }
