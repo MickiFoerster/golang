@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"text/template"
+
+	"github.com/fatih/color"
 )
 
 var tpl *template.Template
@@ -53,17 +55,19 @@ func main() {
 	args := []string{"-std=c11", "-Wall", "-Werror", fn}
 	gcc := exec.Command("gcc", args...)
 	err = gcc.Run()
-	if err != nil {
-		fmt.Println("gcc failed:", err)
-	} else {
-		fmt.Println("gcc succeeded")
-	}
+	showResult(err, "gcc")
 
 	clang := exec.Command("clang", args...)
 	err = clang.Run()
+	showResult(err, "clang")
+}
+
+func showResult(err error, msg string) {
+	fmt.Print(msg)
 	if err != nil {
-		fmt.Println("clang failed:", err)
+		color.Red(" [failed] ")
+		fmt.Println(err)
 	} else {
-		fmt.Println("clang succeeded")
+		color.Green(" [OK] ")
 	}
 }
