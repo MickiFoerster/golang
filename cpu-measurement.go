@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type cpustat struct {
@@ -76,20 +77,22 @@ func getCPUSample() (*cpustat, error) {
 }
 
 func main() {
-	stat, err := getCPUSample()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(stat)
-	/*
-		idle0, total0 := getCPUSample()
-		time.Sleep(3 * time.Second)
-		idle1, total1 := getCPUSample()
+	for i := 0; i < 100; i++ {
+		stat1, err := getCPUSample()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		idleTicks := float64(idle1 - idle0)
-		totalTicks := float64(total1 - total0)
+		time.Sleep(200 * time.Millisecond)
+		stat2, err := getCPUSample()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		idleTicks := float64(stat2.idle - stat1.idle)
+		totalTicks := float64(stat2.total - stat1.total)
 		cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
 
 		fmt.Printf("CPU usage is %f%% [busy: %f, total: %f]\n", cpuUsage, totalTicks-idleTicks, totalTicks)
-	*/
+	}
 }
