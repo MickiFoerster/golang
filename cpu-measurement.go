@@ -16,6 +16,7 @@ type cpustat struct {
 	iowait  uint64
 	irq     uint64
 	softirq uint64
+	total   uint64
 }
 
 func (stat *cpustat) String() string {
@@ -26,6 +27,7 @@ func (stat *cpustat) String() string {
 	s += fmt.Sprintf("%10s %10v\n", "iowait:", stat.iowait)
 	s += fmt.Sprintf("%10s %10v\n", "irq:", stat.irq)
 	s += fmt.Sprintf("%10s %10v\n", "softirq:", stat.softirq)
+	s += fmt.Sprintf("%10s %10v\n", "total:", stat.total)
 	return s
 }
 
@@ -39,6 +41,8 @@ func getCPUSample() (*cpustat, error) {
 		fields := strings.Fields(line)
 		if fields[0] == "cpu" {
 			var stat cpustat
+			var totalticks uint64
+			totalticks = 0
 			for i := 1; i < len(fields); i++ {
 				val, err := strconv.ParseUint(fields[i], 10, 64)
 				if err != nil {
@@ -61,9 +65,10 @@ func getCPUSample() (*cpustat, error) {
 				case 7:
 					stat.softirq = val
 				default:
-					fmt.Printf("unknown value in %v. column: %v\n", i, val)
 				}
+				totalticks += val
 			}
+			stat.total = totalticks
 			return &stat, nil
 		}
 	}
