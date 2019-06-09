@@ -77,7 +77,7 @@ func grep(fn string) error {
 	linecounter := 1
 	linestart := 0
 
-	buf := make([]byte, 32)
+	buf := make([]byte, 1024*1024)
 	n := 0
 	patternidx := 0
 	for {
@@ -106,7 +106,7 @@ func grep(fn string) error {
 
 			if b == '\n' {
 				if linematches {
-					fmt.Printf("%s:%d: %s\n", fn, linecounter, string(buf[linestart:i+1]))
+					fmt.Printf("%s:%d: %s", fn, linecounter, string(buf[linestart:i+1]))
 					linematches = false
 				}
 
