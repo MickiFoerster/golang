@@ -76,23 +76,51 @@ func getCPUSample() (*cpustat, error) {
 	return nil, fmt.Errorf("Could not fine line with prefix cpu")
 }
 
+func loop(ch chan<- float64) {
+	stat1, err := getCPUSample()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+	stat2, err := getCPUSample()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	idleTicks := float64(stat2.idle - stat1.idle)
+	totalTicks := float64(stat2.total - stat1.total)
+	cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
+
+	stat1 = stat2
+	ch <- cpuUsage
+
+	for {
+		select {
+		case <-time.After(500 * time.Millisecond):
+			stat2, err := getCPUSample()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			idleTicks := float64(stat2.idle - stat1.idle)
+			totalTicks := float64(stat2.total - stat1.total)
+			cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
+
+			stat2 = stat1
+			ch <- cpuUsage
+		}
+	}
+}
+
 func main() {
-	for i := 0; i < 100; i++ {
-		stat1, err := getCPUSample()
-		if err != nil {
-			log.Fatal(err)
+	ch := make(chan float64)
+	go loop(ch)
+
+	for {
+		select {
+		case cpuUsage := <-ch:
+			fmt.Printf("CPU usage is %f%%\n", cpuUsage)
 		}
-
-		time.Sleep(200 * time.Millisecond)
-		stat2, err := getCPUSample()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		idleTicks := float64(stat2.idle - stat1.idle)
-		totalTicks := float64(stat2.total - stat1.total)
-		cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
-
-		fmt.Printf("CPU usage is %f%% [busy: %f, total: %f]\n", cpuUsage, totalTicks-idleTicks, totalTicks)
 	}
 }
