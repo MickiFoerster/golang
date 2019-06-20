@@ -136,7 +136,7 @@ func main() {
 	for {
 		select {
 		case cpuUsage := <-ch:
-			fmt.Printf("CPU usage is %f%%\n", cpuUsage)
+			fmt.Printf("%s: CPU usage is %f%%\r", time.Now().String()[:19], cpuUsage)
 		}
 	}
 }
