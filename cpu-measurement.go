@@ -1,3 +1,6 @@
+// Measure CPU usage
+// Hints can be found in https://www.idnt.net/en-US/kb/941772
+
 package main
 
 import (
@@ -44,7 +47,7 @@ func getCPUSample() (*cpustat, error) {
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		if fields[0] == "cpu" {
-			var stat cpustat
+			stat := new(cpustat)
 			var totalticks uint64
 			totalticks = 0
 			for i := 1; i < len(fields); i++ {
@@ -79,7 +82,7 @@ func getCPUSample() (*cpustat, error) {
 				totalticks += val
 			}
 			stat.total = totalticks
-			return &stat, nil
+			return stat, nil
 		}
 	}
 	return nil, fmt.Errorf("Could not fine line with prefix cpu")
@@ -87,11 +90,10 @@ func getCPUSample() (*cpustat, error) {
 
 func getCpuUsage(stat2, stat1 *cpustat) float64 {
 	idleTicks := float64(stat2.idle - stat1.idle)
-	iowaitTicks := float64(stat2.iowait - stat1.iowait)
-	stealTicks := float64(stat2.steal - stat1.steal)
-	waiting := idleTicks + iowaitTicks + stealTicks
-	totalTicks := float64(stat2.total - stat1.total)
-	return 100 * (totalTicks - waiting) / totalTicks
+	waiting := idleTicks
+	totalDelta := float64(stat2.total - stat1.total)
+	cpuUsed := totalDelta - waiting
+	return 100 * cpuUsed / totalDelta
 }
 
 func loop(ch chan<- float64) {
@@ -121,7 +123,7 @@ func loop(ch chan<- float64) {
 
 			cpuUsage = getCpuUsage(stat2, stat1)
 
-			stat2 = stat1
+			stat1 = stat2
 			ch <- cpuUsage
 		}
 	}
