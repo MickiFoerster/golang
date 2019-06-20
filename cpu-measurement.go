@@ -10,14 +10,17 @@ import (
 )
 
 type cpustat struct {
-	user    uint64
-	nice    uint64
-	system  uint64
-	idle    uint64
-	iowait  uint64
-	irq     uint64
-	softirq uint64
-	total   uint64
+	user       uint64
+	nice       uint64
+	system     uint64
+	idle       uint64
+	iowait     uint64
+	irq        uint64
+	softirq    uint64
+	steal      uint64
+	guest      uint64
+	guest_nice uint64
+	total      uint64
 }
 
 func (stat *cpustat) String() string {
@@ -65,6 +68,12 @@ func getCPUSample() (*cpustat, error) {
 					stat.irq = val
 				case 7:
 					stat.softirq = val
+				case 8:
+					stat.steal = val
+				case 9:
+					stat.guest = val
+				case 10:
+					stat.guest_nice = val
 				default:
 				}
 				totalticks += val
@@ -74,6 +83,15 @@ func getCPUSample() (*cpustat, error) {
 		}
 	}
 	return nil, fmt.Errorf("Could not fine line with prefix cpu")
+}
+
+func getCpuUsage(stat2, stat1 *cpustat) float64 {
+	idleTicks := float64(stat2.idle - stat1.idle)
+	iowaitTicks := float64(stat2.iowait - stat1.iowait)
+	stealTicks := float64(stat2.steal - stat1.steal)
+	waiting := idleTicks + iowaitTicks + stealTicks
+	totalTicks := float64(stat2.total - stat1.total)
+	return 100 * (totalTicks - waiting) / totalTicks
 }
 
 func loop(ch chan<- float64) {
@@ -88,9 +106,7 @@ func loop(ch chan<- float64) {
 		log.Fatal(err)
 	}
 
-	idleTicks := float64(stat2.idle - stat1.idle)
-	totalTicks := float64(stat2.total - stat1.total)
-	cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
+	cpuUsage := getCpuUsage(stat2, stat1)
 
 	stat1 = stat2
 	ch <- cpuUsage
@@ -103,9 +119,7 @@ func loop(ch chan<- float64) {
 				log.Fatal(err)
 			}
 
-			idleTicks := float64(stat2.idle - stat1.idle)
-			totalTicks := float64(stat2.total - stat1.total)
-			cpuUsage := 100 * (totalTicks - idleTicks) / totalTicks
+			cpuUsage = getCpuUsage(stat2, stat1)
 
 			stat2 = stat1
 			ch <- cpuUsage
