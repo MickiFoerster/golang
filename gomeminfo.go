@@ -7,9 +7,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
-func main() {
+func getMemSample() float64 {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
 		log.Fatalln("error while opening file /proc/meminfo:", err)
@@ -60,5 +61,29 @@ loop:
 		}
 	}
 	memUsed := totalKB - availKB
-	fmt.Printf("mem usage: %.2f%%\n", memUsed*100/totalKB)
+	return memUsed * 100 / totalKB
+}
+
+func getMemUsage() <-chan float64 {
+	c := make(chan float64)
+	go func() {
+		for {
+			select {
+			case <-time.After(time.Second):
+				c <- getMemSample()
+			}
+		}
+	}()
+
+	return c
+}
+
+func main() {
+	c := getMemUsage()
+	for {
+		select {
+		case mu := <-c:
+			fmt.Println(mu)
+		}
+	}
 }
