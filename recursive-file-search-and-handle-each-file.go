@@ -13,30 +13,12 @@ const numOfConcurrentWorker = 8
 var (
 	filelist    = make(chan string)
 	input_task1 = make(chan string)
-	done        = make(chan struct{})
 )
 
 func main() {
 	dir := checkArgs()
-	go task1()
-	go consumeFilepaths()
-	go fileSearch(dir)
+	done := fileSearch(dir)
 	<-done
-}
-
-func consumeFilepaths() {
-	for fn := range filelist {
-		input_task1 <- fn
-	}
-	close(input_task1)
-}
-
-func fileSearch(dir string) {
-	err := filepath.Walk(dir, walker)
-	if err != nil {
-		log.Fatal("error: Cannot read list of files:", err)
-	}
-	close(filelist)
 }
 
 func checkArgs() string {
@@ -59,15 +41,38 @@ func checkArgs() string {
 	return d
 }
 
-func task1() {
-	task1WorkerDone := make(chan struct{}, numOfConcurrentWorker)
+func consumeFilepaths(done chan struct{}) {
+	go task1(done)
+	for fn := range filelist {
+		input_task1 <- fn
+	}
+	close(input_task1)
+}
+
+func fileSearch(dir string) chan struct{} {
+	c := make(chan struct{})
+
+	go func() {
+		go consumeFilepaths(c)
+		err := filepath.Walk(dir, walker)
+		if err != nil {
+			log.Fatal("error: Cannot read list of files:", err)
+		}
+		close(filelist)
+	}()
+
+	return c
+}
+
+func task1(done chan struct{}) {
+	semaphore := make(chan struct{}, numOfConcurrentWorker)
 	for fn := range input_task1 {
-		task1WorkerDone <- struct{}{}
+		semaphore <- struct{}{}
 		go func() {
 			fmt.Println(fn, "starts ... ")
 			time.Sleep(time.Second)
 			fmt.Println(fn, "ends")
-			<-task1WorkerDone
+			<-semaphore
 		}()
 	}
 	done <- struct{}{}
