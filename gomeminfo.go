@@ -83,7 +83,7 @@ func main() {
 	for {
 		select {
 		case mu := <-c:
-			fmt.Println(mu)
+			fmt.Printf("%f\r", mu)
 		}
 	}
 }
