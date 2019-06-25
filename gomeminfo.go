@@ -83,7 +83,7 @@ func main() {
 	for {
 		select {
 		case mu := <-c:
-			fmt.Printf("%f\r", mu)
+			fmt.Printf("mem in use: %0.2f%%\r", mu)
 		}
 	}
 }
