@@ -32,7 +32,7 @@ func main() {
 	execv := execvCall{os.Args[1], os.Args[1:]}
 
 	if _, err := os.Stat(execv.Path); os.IsNotExist(err) {
-		fmt.Fprintln(os.Stderr, "warning: First argument has to be full path to existent file.")
+		log.Fatal(fmt.Sprintf("error: First argument has to be full path to existent file, %q does not exist.", execv.Path))
 	}
 
 	const fn = "main.c"
@@ -123,7 +123,7 @@ func applyClangFormat(fn string) {
 }
 
 func testOutputWithCompiler(compiler string, inputfile string) {
-	args := []string{"-std=c11", "-Wall", "-Werror", inputfile}
+	args := []string{"-std=c11", "-ggdb3", "-Wall", "-Werror", inputfile}
 	s := fmt.Sprint(compiler)
 	for _, arg := range args {
 		s += fmt.Sprintf(" %s", arg)

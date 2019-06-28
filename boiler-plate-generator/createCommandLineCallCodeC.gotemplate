@@ -1,12 +1,16 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-void readOutput(char const * const buf, ssize_t const n) {
+#define RETURN_CODE_ERROR -1
+#define RETURN_CODE_OK 0
+
+static void readOutput(char const * const buf, ssize_t const n) {
   ssize_t i;
   const char msg[] = "read from pipe: ";
   fprintf(stderr, msg);
@@ -19,50 +23,62 @@ void readOutput(char const * const buf, ssize_t const n) {
   }
 }
 
+static int redirectFileDescriptor(int src, int dst) {
+  int rc;
+  for (;;) {
+    rc = dup2(src, dst);
+    if (rc == -1) {
+      if (errno == EINTR)
+        continue;
+      perror("dup2 failed");
+      return RETURN_CODE_ERROR;
+    }
+    break;
+  }
+  return RETURN_CODE_OK;
+}
+
 int callCommand(void) {
-  const int error = -1;
-  const int ok = -1;
   int rc;
   int filedes[2];
 
   rc = pipe(filedes);
   if (rc == -1) {
     perror("pipe");
-    return error;
+    return RETURN_CODE_ERROR;
   }
   pid_t pid = fork();
   if (pid == -1) {
     perror("fork failed");
-    return error;
+    return RETURN_CODE_ERROR;
   } else if (pid == 0) { // child process
     const char path[] = "{{.Path}}";
     char *const args[] = {
     {{range $arg := .Args}} "{{$arg}}", {{end}}
       NULL
     };
-
-    // Reroute stdout to pipe
-    for (;;) {
-      rc = dup2(filedes[1], STDOUT_FILENO);
-      if (rc == -1) {
-        if (errno == EINTR)
-          continue;
-        perror("dup2");
-        return error;
-      }
-      break;
+    rc = redirectFileDescriptor(filedes[1], STDOUT_FILENO);
+    if (rc != RETURN_CODE_OK) {
+      return RETURN_CODE_ERROR;
+    }
+    rc = redirectFileDescriptor(filedes[1], STDERR_FILENO);
+    if (rc != RETURN_CODE_OK) {
+      return RETURN_CODE_ERROR;
     }
     close(filedes[0]); // close exit for child
     close(filedes[1]); // close entrance of pipe
     rc = execv(path, args);
     if (rc < 0) {
       fprintf(stderr, "execv failed: %s\n", strerror(errno));
+      return RETURN_CODE_ERROR;
     }
+    assert(0 && "Here execution MAY never arrive");
   } else {             // parent
     close(filedes[1]); // close entrance of pipe in parent process
     // Now parent process reads from exit of pipe
     char buf[4096];
-    waitpid(pid, NULL, 0);
+    int status = 0;
+
     for (;;) {
       ssize_t n = read(filedes[0], buf, sizeof(buf));
       if (n == -1) {
@@ -70,7 +86,7 @@ int callCommand(void) {
           continue;
         } else {
           perror("read");
-          return error;
+          return RETURN_CODE_ERROR;
         }
       } else if (n == 0) {
         break; // EOF
@@ -78,10 +94,22 @@ int callCommand(void) {
         readOutput(buf, n);
       }
     }
+
+    rc = waitpid(pid, &status, 0);
+    if (rc == -1) {
+      perror("waitpid failed");
+      return RETURN_CODE_ERROR;
+    }
+    if (rc==pid && WIFEXITED(status) && 0 <= status && status <= 127 ) {
+      fprintf(stderr, "Command execution finished with return code %d\n", WEXITSTATUS(status));
+    } else {
+      fprintf(stderr, "command execution with execv() failed\n");
+    }
+
     close(filedes[0]); // close pipe exit for parent
   }
 
-  return ok;
+  return RETURN_CODE_OK;
 }
 
 int main() {
