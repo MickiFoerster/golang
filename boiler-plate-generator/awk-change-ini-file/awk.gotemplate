@@ -1,0 +1,33 @@
+BEGIN {
+	section_found = 0;
+}
+
+# Set flag when section matches
+/^\[{{.SectionName}}\]/ {
+	section_found = 1;
+}
+	
+# Modify the line, if the flag is set
+/^[\ \t][\ \t]*{{.ValueName}}[\ \t][\ \t]*= / {
+	if (processing) {
+	    print "{{.ValueName}} = {{.NewValue}}";
+		skip = 1;
+	}
+}
+
+# As soon as new section is reached, clear flag
+/^\[/ {
+  processing = 0;
+  if (section_found) {
+    section_found = 0;
+    processing = 1;
+  } 
+}
+
+# Remaining lines keep the same
+/.*/ {
+	if (skip)
+	    skip = 0;
+	else
+		print $0;
+}
