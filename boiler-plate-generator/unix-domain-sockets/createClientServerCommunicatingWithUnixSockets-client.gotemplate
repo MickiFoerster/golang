@@ -7,35 +7,58 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #define BUFFERSIZE {{.BufferSize}}
-#define UNIX_DOMAIN_SOCKET_FILE "/tmp/sock.uds"
+#define UNIX_DOMAIN_SOCKET_FILE "{{.UnixDomainSocketPath}}"
+
+
+void* unixDomainSocketReader(void* argv) {
+  int sd;
+  int rc;
+  char *buffer = (char*) malloc(BUFFERSIZE);
+  struct sockaddr_un addr;
+
+  sd = socket(PF_LOCAL, SOCK_STREAM, 0);
+  if (sd<0) {
+    perror("socket() failed");
+    return NULL;
+  }
+
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_LOCAL;
+  strncpy(addr.sun_path, UNIX_DOMAIN_SOCKET_FILE, sizeof(addr.sun_path));
+
+  rc = connect(sd, (struct sockaddr*) &addr, sizeof(addr));
+  if (rc<0) {
+    perror("connection failed");
+    close(sd);
+    return NULL;
+  }
+
+  for(;;) {
+    ssize_t n;
+    n = recv(sd, buffer, BUFFERSIZE, 0);
+    if (n<0) {
+      perror("error while reading from connection");
+      continue;
+    } else if (n==0) {
+      break;
+    } else {
+      ssize_t i;
+      for(i=0; i<n; ++i) {
+        fprintf(stderr, "%c", buffer[i]);
+      }
+    }
+  }
+  close(sd);
+  return NULL;
+}
 
 int main (int argc, char **argv) {
-  int sock;
-  char *buffer = (char*) malloc(BUFFERSIZE);
-  struct sockaddr_un address;
-  int size;
-  printf ("\e[2J");
-  if((sock=socket (PF_LOCAL, SOCK_STREAM, 0)) > 0)
-    printf ("Socket wurde angelegt\n");
-  address.sun_family = AF_LOCAL;
-  strcpy(address.sun_path, UNIX_DOMAIN_SOCKET_FILE);
-  if (connect ( sock,
-                (struct sockaddr *) &address,
-                sizeof (address)) == 0)
-    printf ("Verbindung mit dem Server hergestellt\n");
-  do {
-      size = recv(sock, buffer, BUFFERSIZE-1, 0);
-      if( size > 0)
-         buffer[size] = '\0';
-      printf ("Nachricht erhalten: %s\n", buffer);
-      if (strcmp (buffer, "quit\n")) {
-         printf ("Nachricht zum Versenden: ");
-         fgets (buffer, BUFFERSIZE, stdin);
-         send(sock, buffer, strlen (buffer), 0);
-       }
-  } while (strcmp (buffer, "quit\n") != 0);
-  close (sock);
+  pthread_t tid;
+  pthread_create(&tid, NULL, unixDomainSocketReader, NULL);
+  pthread_join(tid, NULL);
+
   return EXIT_SUCCESS;
 }

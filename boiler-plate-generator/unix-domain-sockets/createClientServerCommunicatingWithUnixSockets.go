@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/fatih/color"
@@ -16,7 +18,7 @@ import (
 var tplclient *template.Template
 var tplserver *template.Template
 
-type execvCall struct {
+type unixDomainSocket struct {
 	UnixDomainSocketPath string
 	BufferSize           uint64
 }
@@ -27,36 +29,31 @@ func init() {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatalf("syntax error: At least one parameter must be provided. For example:\n%s ls -l -t", os.Args[0])
+	uds := unixDomainSocket{
+		UnixDomainSocketPath: "/tmp/ASDF",
+		BufferSize:           4096,
 	}
 
-	execv := execvCall{os.Args[1], os.Args[1:]}
-
-	if _, err := os.Stat(execv.Path); os.IsNotExist(err) {
-		fmt.Fprintln(os.Stderr, "warning: First argument has to be full path to existent file.")
-	}
-
-	const fn = "main.c"
-	f, err := os.Create(fn)
+	const fnClient = "uds-client.c"
+	fClient, err := os.Create(fnClient)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = tpl.Execute(f, execv)
+	err = tplclient.Execute(fClient, uds)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	f.Close()
-	fmt.Printf("C code has been written to %q.\n", fn)
+	fClient.Close()
+	fmt.Printf("C code has been written to %q.\n", fnClient)
 
 	// Postprocess with clang-format
-	applyClangFormat(fn)
+	applyClangFormat(fnClient)
 
 	fmt.Println("Now, we test this code by using:")
-	testOutputWithCompiler("gcc", fn)
-	testOutputWithCompiler("clang", fn)
+	testOutputWithCompiler("gcc", fnClient)
+	testOutputWithCompiler("clang", fnClient)
 }
 
 func applyClangFormat(fn string) {
@@ -102,7 +99,7 @@ func applyClangFormat(fn string) {
 		return
 	}
 
-	// Copy tmpfile content to main.c
+	// Copy tmpfile content to original file
 	src, err := os.Open(tmpfile.Name())
 	if err != nil {
 		fmt.Println("could not open temporary file", err)
@@ -125,7 +122,15 @@ func applyClangFormat(fn string) {
 }
 
 func testOutputWithCompiler(compiler string, inputfile string) {
-	args := []string{"-std=c11", "-Wall", "-Werror", inputfile}
+	args := []string{
+		"-std=c11",
+		"-Wall",
+		"-Werror",
+		"-pthread",
+		"-o",
+		strings.TrimSuffix(inputfile, filepath.Ext(inputfile)) + "-" + compiler,
+		inputfile,
+	}
 	s := fmt.Sprint(compiler)
 	for _, arg := range args {
 		s += fmt.Sprintf(" %s", arg)
