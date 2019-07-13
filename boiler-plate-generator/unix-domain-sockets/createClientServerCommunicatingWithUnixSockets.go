@@ -34,26 +34,36 @@ func main() {
 		BufferSize:           4096,
 	}
 
-	const fnClient = "uds-client.c"
-	fClient, err := os.Create(fnClient)
-	if err != nil {
-		log.Fatal(err)
+	const clientSourceFilename = "uds-client.c"
+	const serverSourceFilename = "uds-server.c"
+	for _, fn := range []string{clientSourceFilename, serverSourceFilename} {
+		f, err := os.Create(fn)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		switch fn {
+		case clientSourceFilename:
+			err = tplclient.Execute(f, uds)
+		case serverSourceFilename:
+			err = tplserver.Execute(f, uds)
+		default:
+			log.Fatal("unexpected file name appeared:", fn)
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		f.Close()
+		fmt.Printf("C code has been written to %q.\n", fn)
+
+		// Postprocess with clang-format
+		applyClangFormat(fn)
+
+		fmt.Println("Now, we test this code by using:")
+		testOutputWithCompiler("gcc", fn)
+		testOutputWithCompiler("clang", fn)
 	}
-
-	err = tplclient.Execute(fClient, uds)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fClient.Close()
-	fmt.Printf("C code has been written to %q.\n", fnClient)
-
-	// Postprocess with clang-format
-	applyClangFormat(fnClient)
-
-	fmt.Println("Now, we test this code by using:")
-	testOutputWithCompiler("gcc", fnClient)
-	testOutputWithCompiler("clang", fnClient)
 }
 
 func applyClangFormat(fn string) {

@@ -8,21 +8,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#define BUF 1024
-#define UDS_FILE "/tmp/sock.uds"
+
+#define BUFFERSIZE {{.BufferSize}}
+#define UNIX_DOMAIN_SOCKET_FILE "{{.UnixDomainSocketPath}}"
+
 int main (void) {
   int create_socket, new_socket;
   socklen_t addrlen;
-  char *buffer = malloc (BUF);
+  char *buffer = malloc (BUFFERSIZE);
   ssize_t size;
   struct sockaddr_un address;
-  const int y = 1;
   printf ("\e[2J");
   if((create_socket=socket (AF_LOCAL, SOCK_STREAM, 0)) > 0)
     printf ("Socket wurde angelegt\n");
-  unlink(UDS_FILE);
+  unlink(UNIX_DOMAIN_SOCKET_FILE);
   address.sun_family = AF_LOCAL;
-  strcpy(address.sun_path, UDS_FILE);
+  strncpy(address.sun_path, UNIX_DOMAIN_SOCKET_FILE, sizeof(address.sun_path));
   if (bind ( create_socket,
              (struct sockaddr *) &address,
              sizeof (address)) != 0) {
@@ -38,9 +39,9 @@ int main (void) {
       printf ("Ein Client ist verbunden ...\n");
      do {
         printf ("Nachricht zum Versenden: ");
-        fgets (buffer, BUF, stdin);
+        fgets (buffer, BUFFERSIZE, stdin);
         send (new_socket, buffer, strlen (buffer), 0);
-        size = recv (new_socket, buffer, BUF-1, 0);
+        size = recv (new_socket, buffer, BUFFERSIZE-1, 0);
         if( size > 0)
            buffer[size] = '\0';
         printf ("Nachricht empfangen: %s\n", buffer);
