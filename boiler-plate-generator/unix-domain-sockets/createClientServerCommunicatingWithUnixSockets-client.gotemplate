@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -12,12 +13,60 @@
 #define BUFFERSIZE {{.BufferSize}}
 #define UNIX_DOMAIN_SOCKET_FILE "{{.UnixDomainSocketPath}}"
 
+void* reader(void *argv) {
+  int sd = *((int*)argv);
+  char *buffer = (char*) malloc(BUFFERSIZE);
 
-void* unixDomainSocketReader(void* argv) {
+  for(;;) {
+    ssize_t n;
+    n = recv(sd, buffer, BUFFERSIZE, 0);
+    if (n<0) {
+      perror("error while reading from connection");
+      continue;
+    } else if (n==0) {
+      break;
+    } else {
+      ssize_t i;
+      for(i=0; i<n; ++i) {
+        fprintf(stderr, "%c", buffer[i]);
+      }
+    }
+  }
+  free(buffer);
+
+  return NULL;
+}
+
+void* writer(void *argv) {
+  int sd = *((int*)argv);
+  char *buffer = (char*) malloc(BUFFERSIZE);
+
+  for(;;) {
+    ssize_t n;
+    fgets(buffer, BUFFERSIZE, stdin);
+    for(;;) {
+      n = write(sd, buffer, strlen(buffer));
+      if (n<0) {
+        if (errno==EAGAIN || errno==EINTR)
+          continue;
+        perror("error while writing to connection");
+        break;
+      } else if (n==strlen(buffer)) {
+        break;
+      }
+    } 
+  }
+  free(buffer);
+
+  return NULL;
+}
+
+void* unixDomainSocketClient(void* argv) {
   int sd;
   int rc;
-  char *buffer = (char*) malloc(BUFFERSIZE);
   struct sockaddr_un addr;
+  pthread_t readerThread;
+  pthread_t writerThread;
 
   sd = socket(PF_LOCAL, SOCK_STREAM, 0);
   if (sd<0) {
@@ -36,28 +85,21 @@ void* unixDomainSocketReader(void* argv) {
     return NULL;
   }
 
-  for(;;) {
-    ssize_t n;
-    n = recv(sd, buffer, BUFFERSIZE, 0);
-    if (n<0) {
-      perror("error while reading from connection");
-      continue;
-    } else if (n==0) {
-      break;
-    } else {
-      ssize_t i;
-      for(i=0; i<n; ++i) {
-        fprintf(stderr, "%c", buffer[i]);
-      }
-    }
-  }
+
+  pthread_create(&readerThread, NULL, reader, &sd);
+  pthread_create(&writerThread, NULL, writer, &sd);
+
+  pthread_join(readerThread, NULL);
+  pthread_join(writerThread, NULL);
+
   close(sd);
+
   return NULL;
 }
 
 int main (int argc, char **argv) {
   pthread_t tid;
-  pthread_create(&tid, NULL, unixDomainSocketReader, NULL);
+  pthread_create(&tid, NULL, unixDomainSocketClient, NULL);
   pthread_join(tid, NULL);
 
   return EXIT_SUCCESS;

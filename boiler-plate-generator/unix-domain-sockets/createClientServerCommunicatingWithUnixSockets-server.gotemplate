@@ -1,4 +1,4 @@
-/* uds_server.c */
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -8,46 +8,105 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #define BUFFERSIZE {{.BufferSize}}
 #define UNIX_DOMAIN_SOCKET_FILE "{{.UnixDomainSocketPath}}"
 
-int main (void) {
-  int create_socket, new_socket;
-  socklen_t addrlen;
-  char *buffer = malloc (BUFFERSIZE);
-  ssize_t size;
-  struct sockaddr_un address;
-  printf ("\e[2J");
-  if((create_socket=socket (AF_LOCAL, SOCK_STREAM, 0)) > 0)
-    printf ("Socket wurde angelegt\n");
+void* reader(void *argv) {
+  int sd = *((int*)argv);
+  char *buffer = (char*) malloc(BUFFERSIZE);
+
+  for(;;) {
+    ssize_t n;
+    n = recv(sd, buffer, BUFFERSIZE, 0);
+    if (n<0) {
+      perror("error while reading from connection");
+      continue;
+    } else if (n==0) {
+      break;
+    } else {
+      ssize_t i;
+      for(i=0; i<n; ++i) {
+        fprintf(stderr, "%c", buffer[i]);
+      }
+    }
+  }
+  free(buffer);
+
+  return NULL;
+}
+
+void* writer(void *argv) {
+  int sd = *((int*)argv);
+  char *buffer = (char*) malloc(BUFFERSIZE);
+
+  for(;;) {
+    ssize_t n;
+    fgets(buffer, BUFFERSIZE, stdin);
+    for(;;) {
+      n = write(sd, buffer, strlen(buffer));
+      if (n<0) {
+        if (errno==EAGAIN || errno==EINTR)
+          continue;
+        perror("error while writing to connection");
+        break;
+      } else if (n==strlen(buffer)) {
+        break;
+      }
+    } 
+  }
+  free(buffer);
+
+  return NULL;
+}
+
+void* unixDomainSocketServer(void* argv) {
+  int sd;
+  int client_socket;
+  int rc;
+  struct sockaddr_un addr;
+  socklen_t sz;
+  pthread_t readerThread;
+  pthread_t writerThread;
+
   unlink(UNIX_DOMAIN_SOCKET_FILE);
-  address.sun_family = AF_LOCAL;
-  strncpy(address.sun_path, UNIX_DOMAIN_SOCKET_FILE, sizeof(address.sun_path));
-  if (bind ( create_socket,
-             (struct sockaddr *) &address,
-             sizeof (address)) != 0) {
-    printf( "Der Port ist nicht frei – belegt!\n");
+  sd = socket(PF_LOCAL, SOCK_STREAM, 0);
+  if (sd<0) {
+    perror("socket() failed");
+    return NULL;
   }
-  listen (create_socket, 5);
-  addrlen = sizeof (struct sockaddr_in);
-  while (1) {
-     new_socket = accept ( create_socket,
-                           (struct sockaddr *) &address,
-                           &addrlen );
-     if (new_socket > 0)
-      printf ("Ein Client ist verbunden ...\n");
-     do {
-        printf ("Nachricht zum Versenden: ");
-        fgets (buffer, BUFFERSIZE, stdin);
-        send (new_socket, buffer, strlen (buffer), 0);
-        size = recv (new_socket, buffer, BUFFERSIZE-1, 0);
-        if( size > 0)
-           buffer[size] = '\0';
-        printf ("Nachricht empfangen: %s\n", buffer);
-     } while (strcmp (buffer, "quit\n") != 0);
-     close (new_socket);
+
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_LOCAL;
+  strncpy(addr.sun_path, UNIX_DOMAIN_SOCKET_FILE, sizeof(addr.sun_path));
+
+  rc = bind(sd, (struct sockaddr*) &addr, sizeof(addr));
+  if (rc<0) {
+    perror("bind() failed");
+    close(sd);
+    return NULL;
   }
-  close (create_socket);
+  rc = listen(sd, 32);
+
+  for(;;) {
+    sz = sizeof(struct sockaddr_in);
+    client_socket = accept(sd, (struct sockaddr*) &addr, &sz);
+    pthread_create(&readerThread, NULL, reader, &client_socket);
+    pthread_create(&writerThread, NULL, writer, &client_socket);
+    pthread_detach(readerThread);
+    pthread_detach(writerThread);
+  }
+
+  close(sd);
+
+  return NULL;
+}
+
+int main (void) {
+  pthread_t tid;
+  pthread_create(&tid, NULL, unixDomainSocketServer, NULL);
+  pthread_join(tid, NULL);
+
   return EXIT_SUCCESS;
 }
