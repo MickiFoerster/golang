@@ -13,18 +13,22 @@ func init() {
 }
 
 func main() {
+	type arg struct {
+		Type string
+		Name string
+	}
 	type Thread struct {
 		WorkerFunctionReturnType string
 		WorkerFunctionDefintions string
 		WorkerFunctionName       string
-		WorkerFunctionArgs       []string
+		WorkerFunctionArgs       []arg
 		WorkerFunctionReturnStmt string
 	}
 
 	thread := Thread{
 		WorkerFunctionReturnType: "void*",
 		WorkerFunctionName:       "task",
-		WorkerFunctionArgs:       []string{"test1", "test2"},
+		WorkerFunctionArgs:       []arg{{"char*", "buffer"}, {"int", "n"}},
 		WorkerFunctionDefintions: "",
 		WorkerFunctionReturnStmt: "return NULL;",
 	}

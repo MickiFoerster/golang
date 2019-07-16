@@ -7,9 +7,7 @@
     {{ if not .WorkerFunctionArgs }} 
       void
     {{ else }}
-      {{ range $arg := .WorkerFunctionArgs }}
-        {{.}},
-      {{ end }}
+      void *argv
     {{ end }}
   ) {
   {{.WorkerFunctionDefintions}}
@@ -37,8 +35,20 @@ pthread_create(&tid, NULL, {{.WorkerFunctionName}}, NULL);
 pthread_join(tid, NULL);
 {{end}}
 
-{{template "posixThreadImport"}}
-{{template "posixThreadWorkerFunction" . }}
+{{define "posixThreadGlobalScope"}}
+struct argv {
+  {{ range $arg := .WorkerFunctionArgs }}
+    {{.Type}} {{.Name}};
+  {{ end }}
+};
+  {{template "posixThreadWorkerFunction" . }}
+{{end}}
+{{define "posixThreadCurrentScope"}}
 {{template "posixThreadCurrentScopeDefinitions" . }}
 {{template "posixThreadCurrentScopeCreate" . }}
 {{template "posixThreadCurrentScopeJoin" . }}
+{{end}}
+
+{{template "posixThreadImport"}}
+{{template "posixThreadGlobalScope" . }}
+{{template "posixThreadCurrentScope" . }}
