@@ -1,0 +1,44 @@
+{{define "posixThreadImport"}}
+#include <pthread.h>
+{{end}}
+
+{{define "posixThreadWorkerFunctionHeader"}}
+  {{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
+    {{ if not .WorkerFunctionArgs }} 
+      void
+    {{ else }}
+      {{ range $arg := .WorkerFunctionArgs }}
+        {{.}},
+      {{ end }}
+    {{ end }}
+  ) {
+  {{.WorkerFunctionDefintions}}
+{{end}}
+
+{{define "posixThreadWorkerFunctionTail"}}
+  {{.WorkerFunctionReturnStmt}}
+}
+{{end}}
+
+{{define "posixThreadWorkerFunction"}}
+{{template "posixThreadWorkerFunctionHeader" . }}
+{{template "posixThreadWorkerFunctionTail" . }}
+{{end}}
+
+{{define "posixThreadCurrentScopeDefinitions"}}
+pthread_t tid;
+{{end}}
+
+{{define "posixThreadCurrentScopeCreate"}}
+pthread_create(&tid, NULL, {{.WorkerFunctionName}}, NULL);
+{{end}}
+
+{{define "posixThreadCurrentScopeJoin"}}
+pthread_join(tid, NULL);
+{{end}}
+
+{{template "posixThreadImport"}}
+{{template "posixThreadWorkerFunction" . }}
+{{template "posixThreadCurrentScopeDefinitions" . }}
+{{template "posixThreadCurrentScopeCreate" . }}
+{{template "posixThreadCurrentScopeJoin" . }}
