@@ -1,0 +1,60 @@
+{{define "c++11ThreadImport"}}
+#include <iostream>
+#include <thread>
+{{end}}
+
+{{define "c++11ThreadWorkerFunctionHeader"}}
+{{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
+    {{ if not .WorkerFunctionArgs }} 
+      void
+    {{ else }}
+      {{ $n := len .WorkerFunctionArgs }}
+      {{ range $i, $arg := .WorkerFunctionArgs }}
+        {{.Type}} {{.Name}}{{if ne (plus1 $i) $n}},{{end}}
+      {{ end }}
+    {{ end }}
+  ) {
+  {{.WorkerFunctionDefintions}}
+{{end}}
+
+{{define "c++11ThreadWorkerFunctionTail"}}
+  {{.WorkerFunctionReturnStmt}}
+}
+{{end}}
+
+{{define "c++11ThreadWorkerFunction"}}
+{{template "c++11ThreadWorkerFunctionHeader" . }}
+{{template "c++11ThreadWorkerFunctionTail" . }}
+{{end}}
+
+{{define "c++11ThreadCurrentScopeCreate"}}
+  std::thread thr {
+    {{.WorkerFunctionName}},
+    {{ $n := len .WorkerFunctionArgs }}
+    {{ range $i, $arg := .WorkerFunctionArgs }}
+      {{.Name}}{{if ne (plus1 $i) $n}},{{end}}
+    {{ end }}
+  };
+{{end}}
+
+{{define "c++11ThreadCurrentScopeJoin"}} thr.join(); {{end}}
+
+{{define "c++11ThreadGlobalScope"}}
+{{template "c++11ThreadWorkerFunction" . }}
+{{end}}
+
+
+{{define "c++11ThreadCurrentScope"}}
+  {{template "c++11ThreadCurrentScopeCreate" . }}
+  {{template "c++11ThreadCurrentScopeJoin" . }}
+{{end}}
+
+{{template "c++11ThreadImport"}}
+{{template "c++11ThreadGlobalScope" . }}
+int main(int argc, char* argv[]) {
+{{ range $i, $arg := .WorkerFunctionArgs }}
+  {{.Type}} {{.Name}};
+{{ end }}
+{{template "c++11ThreadCurrentScope" . }}
+  return 0;
+}
