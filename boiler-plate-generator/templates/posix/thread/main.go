@@ -33,7 +33,13 @@ func main() {
 		WorkerFunctionReturnStmt: "return NULL;",
 	}
 
-	err := tpl.ExecuteTemplate(os.Stdout, "posix-thread.gotemplate", thread)
+	f, err := os.Create("main.c")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	err = tpl.ExecuteTemplate(f, "posix-thread.gotemplate", thread)
 	if err != nil {
 		log.Fatalln(err)
 	}

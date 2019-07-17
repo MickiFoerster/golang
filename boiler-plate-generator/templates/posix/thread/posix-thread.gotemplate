@@ -1,15 +1,20 @@
 {{define "posixThreadImport"}}
+#include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 {{end}}
 
 {{define "posixThreadWorkerFunctionHeader"}}
-  {{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
+{{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
     {{ if not .WorkerFunctionArgs }} 
       void
     {{ else }}
       void *argv
     {{ end }}
   ) {
+  {{ range $arg := .WorkerFunctionArgs }}
+    {{.Type}} {{.Name}} = ((struct args_s *)argv)->{{.Name}};
+  {{ end }}
   {{.WorkerFunctionDefintions}}
 {{end}}
 
@@ -24,31 +29,52 @@
 {{end}}
 
 {{define "posixThreadCurrentScopeDefinitions"}}
-pthread_t tid;
+  int pthread_rc;
+  pthread_t tid;
+  struct args_s args;
+  {{ range $arg := .WorkerFunctionArgs }}
+    {{.Type}} {{.Name}};
+  {{ end }}
 {{end}}
 
 {{define "posixThreadCurrentScopeCreate"}}
-pthread_create(&tid, NULL, {{.WorkerFunctionName}}, NULL);
+  {{ range $arg := .WorkerFunctionArgs }}
+  args.{{.Name}} = {{.Name}};
+  {{ end }}
+  pthread_rc = pthread_create(&tid, NULL, {{.WorkerFunctionName}}, &args);
+  if (pthread_rc!=0) {
+    fprintf(stderr, "pthread_create() failed (code %d)\n", pthread_rc);
+    exit(EXIT_FAILURE);
+  }
 {{end}}
 
 {{define "posixThreadCurrentScopeJoin"}}
-pthread_join(tid, NULL);
+  pthread_rc = pthread_join(tid, NULL);
+  if (pthread_rc!=0) {
+    fprintf(stderr, "pthread_join() failed (code %d)\n", pthread_rc);
+    exit(EXIT_FAILURE);
+  }
 {{end}}
 
 {{define "posixThreadGlobalScope"}}
-struct argv {
+struct args_s {
   {{ range $arg := .WorkerFunctionArgs }}
     {{.Type}} {{.Name}};
   {{ end }}
 };
-  {{template "posixThreadWorkerFunction" . }}
+{{template "posixThreadWorkerFunction" . }}
 {{end}}
+
+
 {{define "posixThreadCurrentScope"}}
-{{template "posixThreadCurrentScopeDefinitions" . }}
-{{template "posixThreadCurrentScopeCreate" . }}
-{{template "posixThreadCurrentScopeJoin" . }}
+  {{template "posixThreadCurrentScopeDefinitions" . }}
+  {{template "posixThreadCurrentScopeCreate" . }}
+  {{template "posixThreadCurrentScopeJoin" . }}
 {{end}}
 
 {{template "posixThreadImport"}}
 {{template "posixThreadGlobalScope" . }}
+int main(int argc, char* argv[]) {
 {{template "posixThreadCurrentScope" . }}
+  return 0;
+}
