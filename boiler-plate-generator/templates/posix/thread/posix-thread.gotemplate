@@ -1,10 +1,10 @@
-{{define "posixThreadImport"}}
+{{define "threadImport"}}
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 {{end}}
 
-{{define "posixThreadWorkerFunctionHeader"}}
+{{define "threadWorkerFunctionHeader"}}
 {{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
     {{ if not .WorkerFunctionArgs }} 
       void
@@ -18,17 +18,17 @@
   {{.WorkerFunctionDefintions}}
 {{end}}
 
-{{define "posixThreadWorkerFunctionTail"}}
+{{define "threadWorkerFunctionTail"}}
   {{.WorkerFunctionReturnStmt}}
 }
 {{end}}
 
-{{define "posixThreadWorkerFunction"}}
+{{define "threadWorkerFunction"}}
 {{template "posixThreadWorkerFunctionHeader" . }}
 {{template "posixThreadWorkerFunctionTail" . }}
 {{end}}
 
-{{define "posixThreadCurrentScopeDefinitions"}}
+{{define "threadScopeDefinitions"}}
   int pthread_rc;
   pthread_t tid;
   struct args_s args;
@@ -37,44 +37,43 @@
   {{ end }}
 {{end}}
 
-{{define "posixThreadCurrentScopeCreate"}}
+{{define "threadCreateError"}}
+void pthread_create_error(int pthread_rc) {
+    fprintf(stderr, "pthread_create() failed (code %d)\n", pthread_rc);
+    exit(EXIT_FAILURE);
+}
+{{end}}
+
+{{define "threadCreate"}}
   {{ range $arg := .WorkerFunctionArgs }}
   args.{{.Name}} = {{.Name}};
   {{ end }}
   pthread_rc = pthread_create(&tid, NULL, {{.WorkerFunctionName}}, &args);
   if (pthread_rc!=0) {
-    fprintf(stderr, "pthread_create() failed (code %d)\n", pthread_rc);
-    exit(EXIT_FAILURE);
+    pthread_create_error(pthread_rc);
   }
 {{end}}
 
-{{define "posixThreadCurrentScopeJoin"}}
-  pthread_rc = pthread_join(tid, NULL);
-  if (pthread_rc!=0) {
+{{define "threadJoinError"}}
+void pthread_join_error(int pthread_rc) {
     fprintf(stderr, "pthread_join() failed (code %d)\n", pthread_rc);
     exit(EXIT_FAILURE);
+}
+{{end}}
+
+{{define "threadJoin"}}
+  pthread_rc = pthread_join(tid, NULL);
+  if (pthread_rc!=0) {
+    pthread_join_error(pthread_rc);
   }
 {{end}}
 
-{{define "posixThreadGlobalScope"}}
+{{define "globalScope"}}
 struct args_s {
   {{ range $arg := .WorkerFunctionArgs }}
     {{.Type}} {{.Name}};
   {{ end }}
 };
-{{template "posixThreadWorkerFunction" . }}
+{{template "threadWorkerFunction" . }}
 {{end}}
 
-
-{{define "posixThreadCurrentScope"}}
-  {{template "posixThreadCurrentScopeDefinitions" . }}
-  {{template "posixThreadCurrentScopeCreate" . }}
-  {{template "posixThreadCurrentScopeJoin" . }}
-{{end}}
-
-{{template "posixThreadImport"}}
-{{template "posixThreadGlobalScope" . }}
-int main(int argc, char* argv[]) {
-{{template "posixThreadCurrentScope" . }}
-  return 0;
-}

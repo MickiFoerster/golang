@@ -1,9 +1,9 @@
-{{define "c++11ThreadImport"}}
+{{define "threadImport"}}
 #include <iostream>
 #include <thread>
 {{end}}
 
-{{define "c++11ThreadWorkerFunctionHeader"}}
+{{define "threadWorkerFunctionHeader"}}
 {{.WorkerFunctionReturnType}} {{.WorkerFunctionName}} ( 
     {{ if not .WorkerFunctionArgs }} 
       void
@@ -17,17 +17,23 @@
   {{.WorkerFunctionDefintions}}
 {{end}}
 
-{{define "c++11ThreadWorkerFunctionTail"}}
+{{define "threadWorkerFunctionTail"}}
   {{.WorkerFunctionReturnStmt}}
 }
 {{end}}
 
-{{define "c++11ThreadWorkerFunction"}}
+{{define "threadWorkerFunction"}}
 {{template "c++11ThreadWorkerFunctionHeader" . }}
 {{template "c++11ThreadWorkerFunctionTail" . }}
 {{end}}
 
-{{define "c++11ThreadCurrentScopeCreate"}}
+{{define "threadScopeDefinitions"}}
+{{end}}
+
+{{define "threadCreateError"}}
+{{end}}
+
+{{define "threadCreate"}}
   std::thread thr {
     {{.WorkerFunctionName}},
     {{ $n := len .WorkerFunctionArgs }}
@@ -37,24 +43,13 @@
   };
 {{end}}
 
-{{define "c++11ThreadCurrentScopeJoin"}} thr.join(); {{end}}
+{{define "threadJoinError"}}
+{{end}}
 
-{{define "c++11ThreadGlobalScope"}}
-{{template "c++11ThreadWorkerFunction" . }}
+{{define "threadJoin"}} thr.join(); {{end}}
+
+{{define "globalScope"}}
+{{template "threadWorkerFunction" . }}
 {{end}}
 
 
-{{define "c++11ThreadCurrentScope"}}
-  {{template "c++11ThreadCurrentScopeCreate" . }}
-  {{template "c++11ThreadCurrentScopeJoin" . }}
-{{end}}
-
-{{template "c++11ThreadImport"}}
-{{template "c++11ThreadGlobalScope" . }}
-int main(int argc, char* argv[]) {
-{{ range $i, $arg := .WorkerFunctionArgs }}
-  {{.Type}} {{.Name}};
-{{ end }}
-{{template "c++11ThreadCurrentScope" . }}
-  return 0;
-}
