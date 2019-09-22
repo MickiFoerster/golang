@@ -87,7 +87,12 @@ void* unixDomainSocketServer(void* argv) {
     close(sd);
     return NULL;
   }
-  rc = listen(sd, 32);
+  rc = listen(sd, 1);
+  if (rc<0) {
+    perror("listen() failed");
+    close(sd);
+    return NULL;
+  }
 
   for(;;) {
     sz = sizeof(struct sockaddr_in);
