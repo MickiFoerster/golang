@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -25,10 +26,14 @@ func main() {
 		os.Exit(1)
 	}
 	for _, url := range os.Args[1:] {
-		if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
-			fmt.Fprintf(os.Stderr, "Argument %q seems not to be a valid URL.", url)
-			continue
-		}
+		/*
+			if !strings.HasPrefix(url, "http") &&
+				!strings.HasPrefix(url, "https") &&
+				!strings.HasPrefix(url, "file") {
+				fmt.Fprintf(os.Stderr, "Argument %q seems not to be a valid URL.", url)
+				continue
+			}
+		*/
 		wg.Add(1)
 		go htmlParse(url)
 	}
@@ -39,18 +44,31 @@ func main() {
 // starts the search for links afterwards.
 func htmlParse(url string) {
 	defer wg.Done()
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: Could not download %q\n", url)
-		return
-	}
 
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "error: Cannot read HTML body:", err)
-		return
+	data := []byte{}
+	var resp *http.Response
+	if strings.HasPrefix(url, "file") {
+		p := url[len("file://"):]
+		d, err := ioutil.ReadFile(p)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not read file %v\n", p)
+			return
+		}
+		data = d
+	} else {
+		resp, err := http.Get(url)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: Could not download %q\n", url)
+			return
+		}
+
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error: Cannot read HTML body:", err)
+			return
+		}
+		resp.Body.Close()
 	}
-	resp.Body.Close()
 
 	htmlrootnode, err := html.Parse(bytes.NewReader(data))
 	if err != nil {
@@ -67,11 +85,18 @@ func visit(links []string, n *html.Node, resp *http.Response) []string {
 	if n.Type == html.ElementNode && n.Data == "a" {
 		for _, a := range n.Attr {
 			if a.Key == "href" {
-				link, err := resp.Request.URL.Parse(a.Val)
-				if err != nil {
-					continue
+				if resp != nil {
+					link, err := resp.Request.URL.Parse(a.Val)
+					if err != nil {
+						continue
+					}
+					links = append(links, link.String())
+				} else {
+					if strings.HasPrefix(a.Val, "view-source:") {
+						a.Val = a.Val[len("view-source:"):]
+					}
+					log.Printf("found local link %v", a.Val)
 				}
-				links = append(links, link.String())
 			}
 		}
 	}
