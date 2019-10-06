@@ -1,5 +1,5 @@
 // Measure CPU usage
-// Hints can be found in https://www.idnt.net/en-US/kb/941772
+// Hints can be found on https://www.idnt.net/en-US/kb/941772
 
 package main
 
@@ -24,6 +24,50 @@ type cpustat struct {
 	guest     uint64
 	guestNice uint64
 	total     uint64
+}
+
+// GetCPUUsage starts the calculation of CPU usage in the background
+func GetCPUUsage() {
+	ch := make(chan float64)
+	go func() {
+		stat1, err := getCPUSample()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		time.Sleep(updateTime)
+		stat2, err := getCPUSample()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cpuUsage := getCPUUsage(stat2, stat1)
+
+		stat1 = stat2
+		ch <- cpuUsage
+
+		for {
+			select {
+			case <-time.After(updateTime):
+				stat2, err := getCPUSample()
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				cpuUsage = getCPUUsage(stat2, stat1)
+
+				stat1 = stat2
+				ch <- cpuUsage
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case cpuusage = <-ch:
+			}
+		}
+	}()
 }
 
 func (stat *cpustat) String() string {
@@ -94,50 +138,4 @@ func getCPUUsage(stat2, stat1 *cpustat) float64 {
 	totalDelta := float64(stat2.total - stat1.total)
 	cpuUsed := totalDelta - waiting
 	return 100 * cpuUsed / totalDelta
-}
-
-// GetCPUUsage starts the calculation of CPU usage in the background
-func GetCPUUsage() {
-	ch := make(chan float64)
-	go func() {
-		stat1, err := getCPUSample()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		time.Sleep(200 * time.Millisecond)
-		stat2, err := getCPUSample()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		cpuUsage := getCPUUsage(stat2, stat1)
-		fmt.Printf("send %f to the channel\n", cpuUsage)
-
-		stat1 = stat2
-		ch <- cpuUsage
-
-		for {
-			select {
-			case <-time.After(500 * time.Millisecond):
-				stat2, err := getCPUSample()
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				cpuUsage = getCPUUsage(stat2, stat1)
-
-				stat1 = stat2
-				ch <- cpuUsage
-			}
-		}
-	}()
-	go func() {
-		for {
-			select {
-			case cpuusage = <-ch:
-				fmt.Printf("cpu usage is %f\n", cpuusage)
-			}
-		}
-	}()
 }

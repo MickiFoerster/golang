@@ -24,18 +24,21 @@
 <h1 id="headline">no data available</h1>
 
 <script>
-    setInterval(ajaxRequest, 100)
+    setInterval(ajaxRequest, {{.}})
 
     function ajaxRequest() {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', '/getCPUusage', true);
         xhr.onreadystatechange = function() {
             if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200){
+                var res = xhr.responseText
+                console.log(res);
+                var jsonObj = JSON.parse(res);
                 var b = document.querySelector('body');
                 var headline = document.getElementById("headline");
                 headline.remove();
                 var myHeadingOne = document.createElement('h1');
-                var myHeadingOneText = document.createTextNode(xhr.responseText);
+                var myHeadingOneText = document.createTextNode(jsonObj.CPUUsage);
                 myHeadingOne.setAttribute("id", "headline")
                 myHeadingOne.appendChild(myHeadingOneText);
                 b.appendChild(myHeadingOne);

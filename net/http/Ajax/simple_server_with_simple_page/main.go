@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 )
 
-var tpl *template.Template
+var (
+	tpl      *template.Template
+	cpuusage float64
+)
+
+const updateTime = 1000 * time.Millisecond
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*"))
@@ -20,11 +26,9 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	tpl.ExecuteTemplate(w, "index.gohtml", nil)
+	tpl.ExecuteTemplate(w, "index.gohtml", updateTime.Milliseconds())
 }
 
-var cpuusage float64
-
 func getCPUusage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, fmt.Sprintf("%0.2f%%", cpuusage))
+	fmt.Fprintln(w, fmt.Sprintf(`{"CPUUsage":"%6.2f%%"}`, cpuusage))
 }
