@@ -48,7 +48,7 @@ func handleFile(fn string) {
 
 	x, err := exif.Decode(f)
 	if err != nil {
-		return
+		log.Fatalf("Could not decode %q: %s", fn, err)
 	}
 	tm, _ := x.DateTime()
 	fmt.Println("Taken: ", tm)
