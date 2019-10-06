@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        h1 {
+            font-size: 5vw;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+
+<h1 id="headline">no data available</h1>
+
+<script>
+    setInterval(ajaxRequest, 100)
+
+    function ajaxRequest() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/getCPUusage', true);
+        xhr.onreadystatechange = function() {
+            if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200){
+                var b = document.querySelector('body');
+                var headline = document.getElementById("headline");
+                headline.remove();
+                var myHeadingOne = document.createElement('h1');
+                var myHeadingOneText = document.createTextNode(xhr.responseText);
+                myHeadingOne.setAttribute("id", "headline")
+                myHeadingOne.appendChild(myHeadingOneText);
+                b.appendChild(myHeadingOne);
+            }
+        };
+        xhr.send();
+    }
+</script>
+</body>
+</html>
