@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shell</title>
+</head>
+
+<body>
+
+<form method="post">
+    <p><input type="text" name="command" id="command" placeholder="command"></p>
+    <p id="command-err"></p>
+    <p><input type="submit" id="submit"></p>
+</form>
+
+<script>
+    var cmd = document.querySelector('#command');
+    var cmdErr = document.querySelector('#command-err');
+
+    cmd.addEventListener('input', function() {
+        console.log(cmd.value)
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'checkIfCommandExist', true);
+        xhr.addEventListener('readystatechange', function() {
+            if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200){
+                var s = xhr.responseText;
+                console.log('received answer: ' + s);
+                if (item != '') {
+                    cmdErr.textContent = 'Command exists in ' + item;
+                    document.querySelector('#submit').disabled = false;
+                } else {
+                    cmdErr.textContent = 'Command does not exist';
+                    document.querySelector('#submit').disabled = true;
+                }
+            }
+        });
+        xhr.send(cmd.value);
+    });
+</script>
+
+</body>
+</html>
