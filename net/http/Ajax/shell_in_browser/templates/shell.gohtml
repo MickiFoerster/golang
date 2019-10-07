@@ -24,9 +24,9 @@
         xhr.addEventListener('readystatechange', function() {
             if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200){
                 var s = xhr.responseText;
-                console.log('received answer: ' + s);
-                if (item != '') {
-                    cmdErr.textContent = 'Command exists in ' + item;
+                console.log('received answer: "' + s + '"');
+                if (s != '') {
+                    cmdErr.textContent = 'Command exists in ' + s;
                     document.querySelector('#submit').disabled = false;
                 } else {
                     cmdErr.textContent = 'Command does not exist';
