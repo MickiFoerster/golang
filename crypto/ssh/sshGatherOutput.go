@@ -16,6 +16,7 @@ import (
 )
 
 var sessionOutput = make(map[string]string)
+var sessionOutputmtx sync.Mutex
 var wg sync.WaitGroup
 var logFile *os.File
 
@@ -103,9 +104,11 @@ func connectToHost(host string) {
 }
 
 func processSessionOutput(conn ssh.Conn, output string) {
+	sessionOutputmtx.Lock()
 	curValue := sessionOutput[conn.RemoteAddr().String()]
 	s := strings.TrimRight(output, "\r\n")
 	sessionOutput[conn.RemoteAddr().String()] = curValue + s
+	sessionOutputmtx.Unlock()
 }
 
 func startSSHConnection(host string) (*ssh.Client, error) {
