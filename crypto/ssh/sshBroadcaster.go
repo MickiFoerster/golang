@@ -157,7 +157,7 @@ func startSSHConnection(host string) (*ssh.Client, error) {
 	fmt.Println("Try to connect to ", hostPlusPort)
 	conn, err := ssh.Dial("tcp", hostPlusPort, sshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Could not connect to %q:", hostPlusPort, err)
+		return nil, fmt.Errorf("Could not connect to %q: %s", hostPlusPort, err)
 	}
 	fmt.Println("Successful connected to ", hostPlusPort)
 	return conn, nil
