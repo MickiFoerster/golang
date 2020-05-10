@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -23,7 +24,7 @@ func main() {
 
 func startSSHConnection(host string) {
 	sshConfig := &ssh.ClientConfig{
-		User:            "pi",
+		User:            "root",
 		Auth:            []ssh.AuthMethod{sshAgent()},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -36,59 +37,41 @@ func startSSHConnection(host string) {
 	}
 	fmt.Println("Successful connected to ", hostPlusPort)
 
-	session, err := connection.NewSession()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          0,     // disable echoing
-		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-	}
-
-	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-		session.Close()
-		log.Fatal("request for pseudo terminal failed: %s", err)
-	}
-
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Fatal("Unable to setup stdin for session: %v", err)
-	}
-
-	session.Stdout = os.Stdout
-	session.Stderr = os.Stderr
-
-	// Start remote shell
-	err = session.Shell()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Send command by command
 	cmds := []string{
 		"hostname",
 		"ls -l",
-		"netstat -tulpn",
-		"asdf",
-		"ps -ef",
-		"exit",
 	}
 	for _, cmd := range cmds {
-		fmt.Println("############ Start of command execution:", cmd, "###############")
-		_, err = fmt.Fprintf(stdin, "%s\n", cmd)
+		session, err := connection.NewSession()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("############ End of command execution:", cmd, "###############")
-	}
 
-	// Wait for session to finish
-	err = session.Wait()
-	if err != nil {
-		log.Fatal(err)
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0,     // disable echoing
+			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+		}
+
+		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+			session.Close()
+			log.Fatal("request for pseudo terminal failed: %s", err)
+		}
+
+		stdout, err := session.StdoutPipe()
+		if err != nil {
+			log.Fatal("Unable to setup stdout for session: %v", err)
+		}
+		go io.Copy(os.Stdout, stdout)
+		stderr, err := session.StderrPipe()
+		if err != nil {
+			log.Fatal("Unable to setup stderr for session: %v", err)
+		}
+		go io.Copy(os.Stdout, stderr)
+
+		session.Setenv("PS1", "")
+		session.Run(cmd)
+		session.Close()
 	}
 
 	n.Done()
@@ -101,3 +84,4 @@ func sshAgent() ssh.AuthMethod {
 	}
 	return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
 }
+
