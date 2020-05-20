@@ -12,6 +12,7 @@ import (
 )
 
 var verbose = flag.Bool("v", false, "show verbose progress messages")
+var concurrency = make(chan struct{}, 32)
 
 func main() {
 	// Determine the initial directories from command line
@@ -28,6 +29,7 @@ func main() {
 }
 
 func walkDir(dir string) {
+    concurrency <- struct{}{}
 	for _, entry := range dirents(dir) {
 		if entry.IsDir() {
 			if entry.Name() == ".git" {
@@ -96,6 +98,7 @@ func walkDir(dir string) {
 			}
 		}
 	}
+    <-concurrency
 }
 
 // sema is a counting semaphore for limiting concurrency
