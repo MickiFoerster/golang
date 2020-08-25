@@ -24,8 +24,8 @@ func main() {
 
 func startSSHConnection(host string) {
 	sshConfig := &ssh.ClientConfig{
-		User:            "root",
-		Auth:            []ssh.AuthMethod{sshAgent()},
+		User:            "pi",
+		Auth:            []ssh.AuthMethod{sshAgent(), ssh.Password("raspberry")},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
@@ -39,7 +39,9 @@ func startSSHConnection(host string) {
 
 	cmds := []string{
 		"hostname",
-		"ls -l",
+		"ls -l /",
+		"grep processor /proc/cpuinfo",
+		"sudo apt upgrade -y ",
 	}
 	for _, cmd := range cmds {
 		session, err := connection.NewSession()
@@ -84,4 +86,3 @@ func sshAgent() ssh.AuthMethod {
 	}
 	return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
 }
-
