@@ -5,7 +5,10 @@ import (
 	"regexp"
 )
 
-var httpSchemeRE = regexp.MustCompile(`^https?:`) // "http:" or "https:"
+var (
+	httpSchemeRE = regexp.MustCompile(`^https?:`) // "http:" or "https:"
+	re           = regexp.MustCompile(`([a-z]+)://([^:]+):?([0-9]*)`)
+)
 
 func main() {
 	s := "http://www.example.com"
@@ -13,6 +16,10 @@ func main() {
 	s = "htts://www.example.com"
 	test(s)
 	s = "https://www.example.com"
+	test(s)
+	s = "ssh://www.example.com"
+	test(s)
+	s = "ssh://www.example.com:22"
 	test(s)
 }
 
@@ -22,4 +29,6 @@ func test(s string) {
 	} else {
 		fmt.Println(s, " does not match")
 	}
+
+	fmt.Printf("%q\n", re.FindAllStringSubmatch(s, -1))
 }
