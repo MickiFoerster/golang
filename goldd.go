@@ -45,7 +45,9 @@ func main() {
 		}
 		fmt.Println(fn, ":")
 		for _, lib := range lst {
-			fmt.Println("\t", lib)
+			if lib != fn {
+				fmt.Println("\t", lib)
+			}
 		}
 	}
 	log.Println("Consumer has been finished")
