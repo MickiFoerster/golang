@@ -1,0 +1,44 @@
+option:
+  name: help
+  abbreviation: h
+  has_arg: no_argument
+option:
+  name: verbose
+  abbreviation: v
+  has_arg: no_argument
+option:
+  name: add
+  abbreviation: a
+  has_arg: no_argument
+option:
+  name: append
+  abbreviation: b
+  has_arg: no_argument
+option:
+  name: append
+  abbreviation: d
+  has_arg: required_argument
+option:
+  name: create
+  abbreviation: c
+  has_arg: required_argument
+option:
+  name: file
+  abbreviation: f
+  has_arg: required_argument
+option:
+  name: list
+  abbreviation: l
+  has_arg: optional_argument
+  optional_argument:
+    type: string
+    values:
+      - all
+      - running
+      - stopped
+option:
+  name: info
+  abbreviation: i
+  has_arg: optional_argument
+  optional_argument:
+    type: string
