@@ -29,10 +29,12 @@ func main() {
 		log.Fatalf("error: could not read file: %v", err)
 	}
 
-	var opt Options
-	err = yaml.Unmarshal(data, &opt)
+	var opts Options
+	err = yaml.Unmarshal(data, &opts)
 	if err != nil {
 		log.Fatalf("cannot unmarshal data: %v", err)
 	}
-	fmt.Printf("%v\n", opt)
+	for _, opt := range opts {
+		fmt.Printf("%v\n", opt)
+	}
 }
