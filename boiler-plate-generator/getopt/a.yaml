@@ -1,4 +1,0 @@
-option:
-  name: help
-  abbreviation: h
-  has_arg: no_argument
