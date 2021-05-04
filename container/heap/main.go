@@ -6,6 +6,8 @@ package main
 import (
 	"container/heap"
 	"fmt"
+	"math/rand"
+	"time"
 )
 
 // An IntHeap is a min-heap of ints.
@@ -32,11 +34,16 @@ func (h *IntHeap) Pop() interface{} {
 // This example inserts several ints into an IntHeap, checks the minimum,
 // and removes them in order of priority.
 func main() {
-	h := &IntHeap{2, 1, 5}
-	heap.Init(h)
-	heap.Push(h, 3)
-	fmt.Printf("minimum: %d\n", (*h)[0])
-	for h.Len() > 0 {
-		fmt.Printf("%d ", heap.Pop(h))
+	rand.Seed(time.Now().UnixNano())
+	h := IntHeap{}
+	for i := 0; i < 1000; i++ {
+		h = append(h, rand.Intn(65535))
 	}
+	heap.Init(&h)
+	heap.Push(&h, 3)
+	fmt.Printf("minimum: %d\n", h[0])
+	for h.Len() > 0 {
+		fmt.Printf("%d  ", heap.Pop(&h))
+	}
+	fmt.Println()
 }
