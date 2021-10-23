@@ -80,7 +80,15 @@ func runUDPServer(address string) error {
 		}
 
 		// Signal back to sender
-		n, err = packetconn.WriteTo([]byte("Message received"), addr)
+		n, err = packetconn.WriteTo(
+			[]byte(
+				fmt.Sprintf("ACK for message %s %s",
+					addr,
+					string(buffer[:n]),
+				),
+			),
+			addr,
+		)
 		if err != nil {
 			fmt.Printf("error while sending response: %v\n", err)
 		}
