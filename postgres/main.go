@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	// Connection via Unix socket with path postgres:///dbname?host=/var/run/postgresql/
 	db, err := sql.Open("postgres", "postgres://user1:password@localhost/mydatabase?sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
