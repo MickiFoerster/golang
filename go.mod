@@ -1,6 +1,6 @@
 module github.com/MickiFoerster/golang
 
-go 1.13
+go 1.17
 
 require (
 	github.com/MickiFoerster/GoExamples v0.0.0-20201120193141-ed9edc8af0b9
@@ -13,6 +13,8 @@ require (
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f
 	gopkg.in/yaml.v2 v2.3.0
 )
+
+require golang.org/x/tools v0.1.9 // indirect
