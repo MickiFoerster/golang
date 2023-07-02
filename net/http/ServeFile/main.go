@@ -12,7 +12,7 @@ func main() {
 }
 
 func kenny(w http.ResponseWriter, req *http.Request) {
-	p := path.Join("..", "ServeContent", "Kenny.jpg")
+	p := path.Join("/tmp", "a.mp3")
 
 	/* First method
 	f, err := os.Open(p)
